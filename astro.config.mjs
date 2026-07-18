@@ -7,6 +7,8 @@ import react from '@astrojs/react';
 import sanity from '@sanity/astro';
 import sitemap from '@astrojs/sitemap';
 
+import cloudflare from '@astrojs/cloudflare';
+
 // astro.config is loaded before .env is processed, so read env vars explicitly.
 const { PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET, PUBLIC_SANITY_API_VERSION } =
   loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
@@ -15,6 +17,7 @@ const { PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET, PUBLIC_SANITY_API_VERSI
 export default defineConfig({
   // Placeholder public URL — swap for the real domain when the demo is deployed.
   site: 'https://astro-listings-pro-demo.pages.dev',
+
   integrations: [
     sanity({
       projectId: PUBLIC_SANITY_PROJECT_ID,
@@ -32,4 +35,6 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+
+  adapter: cloudflare(),
 });
