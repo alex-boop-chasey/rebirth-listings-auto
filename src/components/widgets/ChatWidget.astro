@@ -1169,11 +1169,33 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
       recog.onstart = () => { starting = false; recognizing = true; setRec(true); };
       recog.onend = () => { starting = false; recognizing = false; setRec(false); };
-      recog.onerror = (e: any) => {
-        // 'no-speech' / 'aborted' resolve silently (onend resets the UI);
-        // a blocked mic gets a single notice and doesn't re-prompt.
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          addSystem('Microphone access was blocked — you can enable it in your browser settings, or just type.');
+      recog.onerror = async (e: any) => {
+        // Distinguish the failure modes so the notice never lies. 'no-speech' and
+        // 'aborted' are expected/benign and stay silent (onend resets the UI).
+        switch (e.error) {
+          case 'no-speech':
+          case 'aborted':
+            return;
+          case 'not-allowed': {
+            // A persisted block vs. a one-off start failure read differently.
+            let denied = false;
+            try {
+              const p = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+              denied = p.state === 'denied';
+            } catch { /* permissions API unavailable — treat as non-persistent */ }
+            addSystem(denied
+              ? 'Microphone access is blocked — you can enable it in your browser settings, or just type.'
+              : "Voice input didn't start. Check the mic icon in the URL bar to allow it here.");
+            return;
+          }
+          case 'network':
+            addSystem("Voice input needs an internet connection to Google's speech service — please try again or type instead.");
+            return;
+          case 'service-not-allowed':
+            addSystem("Voice input isn't available in this browser — please type instead.");
+            return;
+          default:
+            addSystem("Voice input didn't work. Please type your message instead.");
         }
       };
       recog.onresult = (e: any) => {
