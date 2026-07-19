@@ -108,6 +108,14 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
         autocomplete="off"
         maxlength="2000"
       ></textarea>
+      <button id="reb-mic" class="reb-mic" type="button" aria-label="Dictate a message" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
       <button id="reb-send" class="reb-send" type="submit" aria-label="Send message">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -356,6 +364,20 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   .reb-send:disabled { opacity: 0.5; cursor: not-allowed; }
   .reb-send svg { width: 1.15rem; height: 1.15rem; }
 
+  /* Mic (voice dictation) — secondary/outlined so send stays the primary action */
+  .reb-mic {
+    display: flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+    background: transparent; color: var(--reb-muted);
+    border: 1px solid var(--reb-panel-border); border-radius: 0.75rem;
+    cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .reb-mic[hidden] { display: none; }
+  .reb-mic:hover { background: rgb(255 255 255 / 6%); color: var(--reb-text); }
+  .reb-mic svg { width: 1.15rem; height: 1.15rem; }
+  .reb-mic.reb-recording { background: rgb(239 68 68 / 15%); border-color: #ef4444; color: #ef4444; animation: reb-pulse 1.4s ease-in-out infinite; }
+  @keyframes reb-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 45%); } 50% { box-shadow: 0 0 0 4px rgb(239 68 68 / 0%); } }
+
   .reb-foot { font-size: 0.68rem; color: var(--reb-muted); text-align: center; margin: 0; padding: 0 0.75rem 0.6rem; }
   .reb-foot a { color: var(--reb-muted); text-decoration: underline; }
 
@@ -387,7 +409,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   .reb-confirm-actions { flex-direction: column; } /* stacked — the primary label is long */
 
   @media (prefers-reduced-motion: reduce) {
-    .reb-panel, .reb-launcher, .reb-typing span { animation: none; transition: none; }
+    .reb-panel, .reb-launcher, .reb-typing span, .reb-mic.reb-recording { animation: none; transition: none; }
   }
 </style>
 
@@ -435,6 +457,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   // Minimise/badge/end-chat-dialog elements — optional-chained (not in the hard
   // guard below) so a markup slip degrades gracefully instead of killing the widget.
   const minimiseBtn = document.getElementById('reb-minimise');
+  const micBtn = document.getElementById('reb-mic');
   const badge = document.getElementById('reb-badge');
   const confirmEl = document.getElementById('reb-confirm');
   const confirmTitle = document.getElementById('reb-confirm-title');
@@ -457,6 +480,9 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
     let history: Msg[] = [];
     let busy = false;
+    // Assigned by the voice-dictation feature block below when the Web Speech API
+    // is available; a no-op otherwise so close/submit paths can always call it.
+    let stopDictation: () => void = () => {};
 
     // Handoff state.
     type Status = 'ai_active' | 'escalated' | 'human_active' | 'closed' | null;
@@ -1060,6 +1086,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       root.classList.remove('reb-open');
       launcher.setAttribute('aria-expanded', 'false');
       closeConfirm(false); // never leave a stale dialog for the next open
+      stopDictation(); // don't keep the mic live behind a hidden panel
       updateBadge();
       launcher.focus();
     };
@@ -1111,11 +1138,61 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      stopDictation(); // finalise/stop the mic when the message is sent
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
       autogrow();
       send(text);
     });
+
+    // --- Voice dictation (Web Speech API) ---
+    // Feature-detected: the mic button stays hidden in browsers without support
+    // (e.g. Firefox), so there's never a dead control.
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR && micBtn) {
+      const recog: any = new SR();
+      recog.lang = 'en-AU';
+      recog.interimResults = true;
+      recog.continuous = false;
+
+      let recognizing = false;
+      let starting = false;
+      let micBase = '';
+      const setRec = (on: boolean) => micBtn.classList.toggle('reb-recording', on);
+
+      stopDictation = () => {
+        if (recognizing || starting) {
+          try { recog.stop(); } catch { /* ignore */ }
+        }
+      };
+
+      recog.onstart = () => { starting = false; recognizing = true; setRec(true); };
+      recog.onend = () => { starting = false; recognizing = false; setRec(false); };
+      recog.onerror = (e: any) => {
+        // 'no-speech' / 'aborted' resolve silently (onend resets the UI);
+        // a blocked mic gets a single notice and doesn't re-prompt.
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          addSystem('Microphone access was blocked — you can enable it in your browser settings, or just type.');
+        }
+      };
+      recog.onresult = (e: any) => {
+        let t = '';
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        const sep = micBase && !/\s$/.test(micBase) ? ' ' : '';
+        input.value = (micBase + sep + t).slice(0, 2000); // respect the textarea maxlength
+        autogrow();
+      };
+
+      micBtn.addEventListener('click', () => {
+        if (recognizing) { stopDictation(); return; } // tap-to-stop keeps the transcript
+        if (starting) return; // guard against a double-tap while starting
+        micBase = input.value; // dictation appends to whatever's already typed
+        starting = true;
+        try { recog.start(); } catch { starting = false; }
+      });
+
+      micBtn.hidden = false; // reveal only where the API exists
+    }
   }
 </script>
