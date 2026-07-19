@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import ChatWidget from '../components/widgets/ChatWidget.astro';
 
 const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
 ---
@@ -78,5 +79,8 @@ const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
         </a>
       </footer>
     </div>
+
+    <!-- Floating AI chat assistant (Rebi) — self-contained global overlay -->
+    <ChatWidget />
   </body>
 </html>

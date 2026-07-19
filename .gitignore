@@ -16,6 +16,8 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+# cloudflare worker local secrets (never commit real keys)
+.dev.vars
 
 # macOS-specific files
 .DS_Store

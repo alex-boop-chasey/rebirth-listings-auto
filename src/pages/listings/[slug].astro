@@ -5,6 +5,7 @@ import { urlFor } from '../../sanity/lib/image';
 import ListingCard from '../../components/ListingCard.astro';
 import ContactModal from '../../components/ContactModal.astro';
 import CompareTray from '../../components/CompareTray.astro';
+import ChatWidget from '../../components/widgets/ChatWidget.astro';
 import { PortableText } from 'astro-portabletext';
 import {
   type Listing,
@@ -306,6 +307,9 @@ const canonicalURL = new URL(
 
     <!-- Floating comparison tray (self-contained, appears when ≥1 selected) -->
     <CompareTray />
+
+    <!-- Floating AI chat assistant (Rebi) — self-contained global overlay -->
+    <ChatWidget />
 
     <script>
       import { icons } from '../../lib/listing';

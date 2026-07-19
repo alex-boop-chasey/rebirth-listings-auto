@@ -1,0 +1,985 @@
+---
+/**
+ * Astro Motors — Floating Chat Widget
+ * ------------------------------------------------------------------
+ * Site-wide launcher bubble (bottom-right) that opens an AI chat panel.
+ * Talks to /api/chat (send) and /api/chat-poll (live handoff updates). Pure
+ * vanilla JS — no framework. Supports streaming replies (SSE), an AI-triggered
+ * human handoff (Rebi → Team over Telegram) with live polling, optional contact
+ * capture, and a Cloudflare Turnstile gate on the first message.
+ */
+import { POLL_INTERVAL_MS, ESCALATION_TIMEOUT_MS, TURNSTILE_SITE_KEY, TURNSTILE_ENABLED } from '~/chatbot/config';
+
+const turnstileEnabled = TURNSTILE_ENABLED && Boolean(TURNSTILE_SITE_KEY);
+const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
+---
+
+<div
+  id="reb-chat"
+  class="reb-chat"
+  data-poll-interval={String(POLL_INTERVAL_MS)}
+  data-escalation-timeout={String(ESCALATION_TIMEOUT_MS)}
+  data-turnstile-key={turnstileSiteKey}
+  data-stream="true"
+>
+  <!-- Launcher bubble -->
+  <button
+    id="reb-launcher"
+    class="reb-launcher"
+    type="button"
+    aria-label="Open chat with Astro Motors"
+    aria-expanded="false"
+    aria-controls="reb-panel"
+  >
+    <svg class="reb-ico-chat" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+    <svg class="reb-ico-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
+
+  <!-- Chat panel -->
+  <div
+    id="reb-panel"
+    class="reb-panel"
+    role="dialog"
+    aria-modal="false"
+    aria-label="Chat with Astro Motors"
+    hidden
+  >
+    <header class="reb-head">
+      <div class="reb-head-info">
+        <span class="reb-dot" aria-hidden="true"></span>
+        <div>
+          <p class="reb-head-title">Astro Motors</p>
+          <p class="reb-head-sub">Ask Rebi, our AI assistant</p>
+        </div>
+      </div>
+      <div class="reb-head-actions">
+        <button id="reb-download" class="reb-close" type="button" aria-label="Download chat transcript" title="Download transcript">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+        <button id="reb-close" class="reb-close" type="button" aria-label="Close chat">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="reb-log" class="reb-log" aria-live="polite" aria-atomic="false"></div>
+
+    {turnstileEnabled && (
+      <div id="reb-turnstile" class="reb-turnstile" hidden>
+        <div class="cf-turnstile" data-sitekey={turnstileSiteKey} data-theme="dark" data-size="flexible"></div>
+      </div>
+    )}
+
+    <!-- Contact capture (shown during a handoff) -->
+    <form id="reb-contact" class="reb-contact" hidden>
+      <label class="reb-contact-label" for="reb-contact-input">How can our team reach you? (optional)</label>
+      <div class="reb-contact-row">
+        <input
+          id="reb-contact-input"
+          class="reb-contact-input"
+          type="text"
+          inputmode="email"
+          placeholder="Email or phone"
+          autocomplete="email"
+          maxlength="200"
+        />
+        <button type="submit" class="reb-contact-send">Send</button>
+      </div>
+    </form>
+
+    <form id="reb-form" class="reb-form">
+      <textarea
+        id="reb-input"
+        class="reb-input"
+        rows="1"
+        placeholder="Type your message…"
+        aria-label="Type your message"
+        autocomplete="off"
+        maxlength="2000"
+      ></textarea>
+      <button id="reb-send" class="reb-send" type="submit" aria-label="Send message">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </form>
+    <p class="reb-foot">Rebi is an AI assistant and can make mistakes. For anything important, <a href="/contact">contact our team</a>.</p>
+  </div>
+</div>
+
+<style is:global>
+  .reb-chat {
+    --reb-primary: rgb(1 97 239);
+    --reb-primary-hover: rgb(1 84 207);
+    --reb-panel-bg: rgb(8 12 40);
+    --reb-panel-border: rgb(255 255 255 / 10%);
+    --reb-bot-bg: rgb(58 58 62);          /* iMessage dark-mode grey bubble */
+    --reb-bot-text: rgb(245 247 250);
+    --reb-human-bg: rgb(16 122 87);        /* Team — distinct green from Rebi's grey */
+    --reb-text: rgb(229 236 246);
+    --reb-muted: rgb(229 236 246 / 60%);
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 9999;
+    font-family: var(--aw-font-sans, ui-sans-serif, system-ui, sans-serif);
+  }
+  @media (min-width: 640px) {
+    .reb-chat { right: 1.5rem; bottom: 1.5rem; }
+  }
+
+  /* Launcher */
+  .reb-launcher {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 9999px;
+    background: var(--reb-primary);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 25px -5px rgb(1 97 239 / 45%);
+    transition: transform 0.15s ease, background 0.15s ease;
+    margin-left: auto;
+  }
+  .reb-launcher:hover { background: var(--reb-primary-hover); transform: translateY(-2px); }
+  .reb-launcher:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .reb-launcher svg { width: 1.6rem; height: 1.6rem; }
+  .reb-ico-close { display: none; }
+  .reb-chat.reb-open .reb-ico-chat { display: none; }
+  .reb-chat.reb-open .reb-ico-close { display: block; }
+
+  /* Panel */
+  .reb-panel {
+    position: absolute;
+    right: 0;
+    bottom: 4.25rem;
+    display: flex;
+    flex-direction: column;
+    width: min(24rem, calc(100vw - 2rem));
+    height: min(32rem, calc(100vh - 6rem));
+    background: var(--reb-panel-bg);
+    border: 1px solid var(--reb-panel-border);
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 60%);
+    overflow: hidden;
+    color: var(--reb-text);
+    transform-origin: bottom right;
+    animation: reb-pop 0.18s ease-out;
+  }
+  .reb-panel[hidden] { display: none; }
+  @keyframes reb-pop {
+    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* Header */
+  .reb-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, var(--reb-primary), rgb(109 40 217));
+    color: #fff;
+  }
+  .reb-head-info { display: flex; align-items: center; gap: 0.6rem; }
+  .reb-head-title { font-weight: 600; font-size: 0.95rem; line-height: 1.1; margin: 0; }
+  .reb-head-sub { font-size: 0.75rem; opacity: 0.85; margin: 0.1rem 0 0; }
+  .reb-dot { width: 0.6rem; height: 0.6rem; border-radius: 9999px; background: #34d399; box-shadow: 0 0 0 3px rgb(52 211 153 / 25%); }
+  .reb-head-actions { display: flex; align-items: center; gap: 0.15rem; }
+  .reb-close { background: transparent; border: none; color: #fff; cursor: pointer; padding: 0.25rem; border-radius: 0.4rem; display: flex; }
+  .reb-close:hover { background: rgb(255 255 255 / 18%); }
+  .reb-close svg { width: 1.15rem; height: 1.15rem; }
+  #reb-download { opacity: 0.85; }
+  #reb-download:hover { opacity: 1; }
+
+  /* Action buttons (shown when Rebi wraps up: Download Chat / New Chat) */
+  .reb-actions { display: flex; gap: 0.5rem; margin: 0.1rem 0 0.3rem; }
+  .reb-action-btn {
+    flex: 1;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    padding: 0.65rem 0.5rem;
+    border-radius: 0.75rem;
+    font-size: 0.85rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; border: 1px solid transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .reb-action-btn svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+  .reb-action-primary { background: var(--reb-primary); color: #fff; }
+  .reb-action-primary:hover { background: var(--reb-primary-hover); }
+  .reb-action-secondary { background: rgb(255 255 255 / 6%); color: var(--reb-text); border-color: var(--reb-panel-border); }
+  .reb-action-secondary:hover { background: rgb(255 255 255 / 12%); }
+
+  /* Log */
+  .reb-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    scrollbar-width: thin;
+  }
+  /* Message row: bot/human rows carry an avatar to the left; user rows sit right. */
+  .reb-row { display: flex; align-items: flex-end; gap: 0.45rem; max-width: 85%; }
+  .reb-row-bot { align-self: flex-start; }
+  .reb-row-user { align-self: flex-end; }
+  .reb-col { display: flex; flex-direction: column; gap: 0.15rem; }
+
+  /* Avatars — robot for Rebi, person for the team. */
+  .reb-avatar {
+    width: 1.75rem; height: 1.75rem; flex-shrink: 0;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, var(--reb-primary), rgb(109 40 217));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 35%);
+  }
+  .reb-avatar-human { background: linear-gradient(135deg, #10b981, #047857); }
+  .reb-avatar svg { width: 1.05rem; height: 1.05rem; color: #fff; }
+
+  /* Sender name (only the team is labelled, to distinguish the human from Rebi). */
+  .reb-name { font-size: 0.66rem; color: var(--reb-muted); margin: 0 0 0 0.15rem; font-weight: 600; letter-spacing: 0.02em; }
+
+  /* Centered time separators + system notices. */
+  .reb-time { align-self: center; font-size: 0.66rem; color: var(--reb-muted); margin: 0.35rem 0 0.1rem; letter-spacing: 0.02em; }
+  .reb-system {
+    align-self: center; text-align: center; max-width: 90%;
+    font-size: 0.75rem; color: var(--reb-muted); font-style: italic;
+    background: rgb(255 255 255 / 5%); border-radius: 0.6rem; padding: 0.4rem 0.7rem; margin: 0.25rem 0;
+  }
+
+  .reb-msg { max-width: 100%; padding: 0.5rem 0.85rem; border-radius: 1.25rem; font-size: 0.9rem; line-height: 1.4; word-wrap: break-word; box-shadow: 0 1px 1px rgb(0 0 0 / 15%); }
+  .reb-msg a { color: #93c5fd; text-decoration: underline; }
+  .reb-msg-bot { background: var(--reb-bot-bg); color: var(--reb-bot-text); border-bottom-left-radius: 0.4rem; }
+  .reb-msg-bot a { color: #7fb4ff; }
+  .reb-msg-human { background: var(--reb-human-bg); color: #eafff6; border-bottom-left-radius: 0.4rem; }
+  .reb-msg-human a { color: #d1fae5; }
+  .reb-msg-user { background: var(--reb-primary); color: #fff; border-bottom-right-radius: 0.4rem; }
+  .reb-msg-user a { color: #e8f0ff; }
+  .reb-msg-error { background: rgb(239 68 68 / 15%); border: 1px solid rgb(239 68 68 / 40%); color: #fca5a5; }
+
+  /* Typing indicator */
+  .reb-typing { display: flex; gap: 0.25rem; align-items: center; }
+  .reb-typing span { width: 0.45rem; height: 0.45rem; border-radius: 9999px; background: var(--reb-muted); animation: reb-blink 1.2s infinite; }
+  .reb-typing span:nth-child(2) { animation-delay: 0.2s; }
+  .reb-typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes reb-blink { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
+
+  /* Turnstile */
+  .reb-turnstile { padding: 0.5rem 0.75rem 0; display: flex; justify-content: center; }
+  .reb-turnstile[hidden] { display: none; }
+
+  /* Contact capture */
+  .reb-contact { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.5rem 0.75rem 0; }
+  .reb-contact[hidden] { display: none; }
+  .reb-contact-label { font-size: 0.72rem; color: var(--reb-muted); }
+  .reb-contact-row { display: flex; gap: 0.4rem; }
+  .reb-contact-input {
+    flex: 1; background: rgb(255 255 255 / 6%); border: 1px solid var(--reb-panel-border);
+    border-radius: 0.6rem; color: var(--reb-text); padding: 0.45rem 0.6rem; font-size: 0.85rem; font-family: inherit;
+  }
+  .reb-contact-input:focus { outline: none; border-color: var(--reb-primary); }
+  .reb-contact-send {
+    background: var(--reb-primary); color: #fff; border: none; border-radius: 0.6rem;
+    padding: 0 0.8rem; font-size: 0.82rem; cursor: pointer;
+  }
+  .reb-contact-send:hover { background: var(--reb-primary-hover); }
+
+  /* Form */
+  .reb-form { display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.6rem; border-top: 1px solid var(--reb-panel-border); }
+  .reb-input {
+    flex: 1;
+    resize: none;
+    max-height: 6rem;
+    background: rgb(255 255 255 / 6%);
+    border: 1px solid var(--reb-panel-border);
+    border-radius: 0.75rem;
+    color: var(--reb-text);
+    padding: 0.55rem 0.7rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.4;
+  }
+  .reb-input::placeholder { color: var(--reb-muted); }
+  .reb-input:focus { outline: none; border-color: var(--reb-primary); }
+  .reb-send {
+    display: flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+    background: var(--reb-primary); color: #fff; border: none;
+    border-radius: 0.75rem; cursor: pointer; transition: background 0.15s ease;
+  }
+  .reb-send:hover:not(:disabled) { background: var(--reb-primary-hover); }
+  .reb-send:disabled { opacity: 0.5; cursor: not-allowed; }
+  .reb-send svg { width: 1.15rem; height: 1.15rem; }
+
+  .reb-foot { font-size: 0.68rem; color: var(--reb-muted); text-align: center; margin: 0; padding: 0 0.75rem 0.6rem; }
+  .reb-foot a { color: var(--reb-muted); text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reb-panel, .reb-launcher, .reb-typing span { animation: none; transition: none; }
+  }
+</style>
+
+<script>
+  const GREETING =
+    "Hi! I'm Rebi, the Astro Motors assistant. Ask me about our vehicles, financing, servicing, or trade-ins — I'm happy to help.";
+
+  // Rebi's avatar — a friendly robot head (inline so it needs no external asset).
+  const ROBOT_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 3.6v1.8"/><circle cx="12" cy="2.7" r="1" fill="currentColor" stroke="none"/>' +
+    '<rect x="4.5" y="6" width="15" height="12" rx="3.6"/>' +
+    '<circle cx="9.2" cy="12" r="1.25" fill="currentColor" stroke="none"/>' +
+    '<circle cx="14.8" cy="12" r="1.25" fill="currentColor" stroke="none"/>' +
+    '<path d="M9.6 15.3h4.8"/><path d="M2.6 10.6v2.8"/><path d="M21.4 10.6v2.8"/></svg>';
+
+  // The team's avatar — a simple person, to distinguish the human from Rebi.
+  const PERSON_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/></svg>';
+
+  // Action-button icons.
+  const DL_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  const NEW_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+
+  type WidgetRole = 'user' | 'assistant' | 'human' | 'system' | 'error';
+  type Msg = { role: 'user' | 'assistant'; content: string; ts?: number };
+  type ServerMsg = { id: number; role: 'visitor' | 'ai' | 'human' | 'system'; content: string; created_at?: number };
+
+  const root = document.getElementById('reb-chat');
+  const launcher = document.getElementById('reb-launcher');
+  const panel = document.getElementById('reb-panel');
+  const closeBtn = document.getElementById('reb-close');
+  const downloadBtn = document.getElementById('reb-download');
+  const log = document.getElementById('reb-log');
+  const form = document.getElementById('reb-form') as HTMLFormElement | null;
+  const input = document.getElementById('reb-input') as HTMLTextAreaElement | null;
+  const sendBtn = document.getElementById('reb-send') as HTMLButtonElement | null;
+  const turnstileBox = document.getElementById('reb-turnstile');
+  const contactForm = document.getElementById('reb-contact') as HTMLFormElement | null;
+  const contactInput = document.getElementById('reb-contact-input') as HTMLInputElement | null;
+
+  if (root && launcher && panel && closeBtn && log && form && input && sendBtn) {
+    const STORAGE_KEY = 'reb-chat-history';
+    const SESSION_KEY = 'reb-session-id';
+
+    const POLL_MS = Number(root.dataset.pollInterval) || 3000;
+    const ESC_TIMEOUT_MS = Number(root.dataset.escalationTimeout) || 300000;
+    // Turnstile can't issue a token on localhost (not in the widget's allowed
+    // hostnames), so bypass it there — the server bypasses localhost too.
+    const IS_LOCALHOST = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+    const TURNSTILE_KEY = IS_LOCALHOST ? '' : (root.dataset.turnstileKey || '');
+    const USE_STREAM = root.dataset.stream === 'true';
+
+    let history: Msg[] = [];
+    let busy = false;
+    let greeted = false;
+
+    // Handoff state.
+    type Status = 'ai_active' | 'escalated' | 'human_active' | 'closed' | null;
+    let status: Status = 'ai_active';
+    let lastId = 0; // poll cursor — the highest server message id we've rendered
+    const seen = new Set<number>();
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let escDeadline = 0; // when the "no human yet" fallback should fire (0 = off)
+    let humanArrived = false;
+    let turnstileLoaded = false;
+
+    // --- Persistence ---
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) history = JSON.parse(saved);
+    } catch { /* ignore */ }
+
+    let sessionId: string | null = null;
+    try { sessionId = localStorage.getItem(SESSION_KEY); } catch { /* ignore */ }
+
+    const save = () => {
+      try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch { /* ignore */ }
+    };
+    const storeSession = (id: string) => {
+      sessionId = id;
+      try { localStorage.setItem(SESSION_KEY, id); } catch { /* ignore */ }
+    };
+
+    // --- Rendering ---
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const format = (text: string) => {
+      let html = escapeHtml(text);
+      html = html.replace(/\bhttps?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+      html = html.replace(/(^|\s)(\/(?:contact|blog|about)\b)/g, (_m, pre, path) => `${pre}<a href="${path}">${path}</a>`);
+      html = html.replace(/\n/g, '<br>');
+      return html;
+    };
+
+    // --- Timestamps (centered separators, iMessage-style) ---
+    let lastTs = 0;
+    const TS_GAP_MS = 5 * 60 * 1000;
+    const formatTime = (ts: number) => {
+      const d = new Date(ts);
+      const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const now = new Date();
+      return d.toDateString() === now.toDateString()
+        ? time
+        : d.toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + ', ' + time;
+    };
+    const maybeAddTimestamp = (ts: number) => {
+      if (!ts) return;
+      if (lastTs === 0 || ts - lastTs > TS_GAP_MS) {
+        const div = document.createElement('div');
+        div.className = 'reb-time';
+        div.textContent = formatTime(ts);
+        log.appendChild(div);
+      }
+      lastTs = ts;
+    };
+
+    const scroll = () => { log.scrollTop = log.scrollHeight; };
+
+    // System notices are centered, avatarless.
+    const addSystem = (text: string) => {
+      const div = document.createElement('div');
+      div.className = 'reb-system';
+      div.textContent = text;
+      log.appendChild(div);
+      scroll();
+    };
+
+    // Returns the message element so callers (streaming) can keep updating it.
+    const addBubble = (role: WidgetRole, html: string, ts = Date.now()): HTMLElement => {
+      if (role === 'system') {
+        const div = document.createElement('div');
+        div.className = 'reb-system';
+        div.innerHTML = html;
+        log.appendChild(div);
+        scroll();
+        return div;
+      }
+      maybeAddTimestamp(ts);
+      const isUser = role === 'user';
+      const isHuman = role === 'human';
+      const row = document.createElement('div');
+      row.className = 'reb-row ' + (isUser ? 'reb-row-user' : 'reb-row-bot');
+
+      if (!isUser) {
+        const avatar = document.createElement('span');
+        avatar.className = 'reb-avatar' + (isHuman ? ' reb-avatar-human' : '');
+        avatar.innerHTML = isHuman ? PERSON_SVG : ROBOT_SVG;
+        row.appendChild(avatar);
+      }
+
+      const col = document.createElement('div');
+      col.className = 'reb-col';
+      if (isHuman) {
+        const name = document.createElement('span');
+        name.className = 'reb-name';
+        name.textContent = 'Team';
+        col.appendChild(name);
+      }
+      const el = document.createElement('div');
+      el.className =
+        'reb-msg ' +
+        (isUser ? 'reb-msg-user' : isHuman ? 'reb-msg-human' : role === 'error' ? 'reb-msg-error' : 'reb-msg-bot');
+      el.innerHTML = html;
+      col.appendChild(el);
+      row.appendChild(col);
+      log.appendChild(row);
+      scroll();
+      return el;
+    };
+
+    const showTyping = () => {
+      const row = document.createElement('div');
+      row.className = 'reb-row reb-row-bot';
+      row.id = 'reb-typing';
+      const avatar = document.createElement('span');
+      avatar.className = 'reb-avatar';
+      avatar.innerHTML = ROBOT_SVG;
+      const el = document.createElement('div');
+      el.className = 'reb-msg reb-msg-bot reb-typing';
+      el.innerHTML = '<span></span><span></span><span></span>';
+      row.appendChild(avatar);
+      row.appendChild(el);
+      log.appendChild(row);
+      scroll();
+    };
+    const hideTyping = () => document.getElementById('reb-typing')?.remove();
+
+    const serverRole = (r: ServerMsg['role']): WidgetRole =>
+      r === 'visitor' ? 'user' : r === 'human' ? 'human' : r === 'system' ? 'system' : 'assistant';
+
+    // Render from client history (the AI-only phase — has nice timestamps).
+    const renderHistory = () => {
+      log.innerHTML = '';
+      lastTs = 0;
+      if (!greeted) {
+        addBubble('assistant', format(GREETING), history[0]?.ts);
+        greeted = true;
+      }
+      for (const m of history) addBubble(m.role, format(m.content), m.ts);
+    };
+
+    // Render authoritatively from the server (once a human is involved).
+    const renderFromServer = (messages: ServerMsg[]) => {
+      log.innerHTML = '';
+      lastTs = 0;
+      seen.clear();
+      addBubble('assistant', format(GREETING));
+      greeted = true;
+      for (const m of messages) {
+        addBubble(serverRole(m.role), format(m.content));
+        seen.add(m.id);
+        if (m.id > lastId) lastId = m.id;
+        if (m.role === 'human') humanArrived = true;
+      }
+    };
+
+    // --- Networking helpers ---
+    const getTurnstileToken = (): string => {
+      const el = turnstileBox?.querySelector('[name="cf-turnstile-response"]') as HTMLInputElement | null;
+      return el?.value || '';
+    };
+    const ensureTurnstile = () => {
+      if (!TURNSTILE_KEY || turnstileLoaded) return;
+      turnstileLoaded = true;
+      if (turnstileBox) turnstileBox.hidden = false;
+      const s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+      s.async = true;
+      s.defer = true;
+      document.head.appendChild(s);
+    };
+
+    const pollUrl = (after: number) => `/api/chat-poll?sessionId=${encodeURIComponent(sessionId || '')}&afterId=${after}`;
+
+    const pollFetch = async (after: number) => {
+      try {
+        const res = await fetch(pollUrl(after));
+        return (await res.json()) as { status: Status; messages: ServerMsg[]; lastId: number };
+      } catch {
+        return null;
+      }
+    };
+
+    // --- Transcript download ---
+    const SPEAKER: Record<string, string> = { visitor: 'You', ai: 'Rebi', human: 'Team', system: 'System' };
+    const fmtTs = (secs?: number) => (secs ? new Date(secs * 1000).toLocaleString() : '');
+
+    const buildTranscript = (msgs: ServerMsg[]) => {
+      const rule = '='.repeat(44);
+      const out = ['Astro Motors — Chat transcript', rule, ''];
+      for (const m of msgs) {
+        if (m.role === 'system') {
+          out.push(`— ${m.content}`, '');
+          continue;
+        }
+        const when = fmtTs(m.created_at);
+        out.push(`${SPEAKER[m.role] || m.role}${when ? ' · ' + when : ''}:`, m.content, '');
+      }
+      out.push(
+        rule,
+        'Astro Motors',
+        'Phone: [DEALER_PHONE]',
+        'Contact: [DEALER_URL]/contact',
+        `Saved: ${new Date().toLocaleString()}`
+      );
+      return out.join('\n');
+    };
+
+    const downloadTranscript = async () => {
+      let msgs: ServerMsg[] = [];
+      if (sessionId) {
+        const data = await pollFetch(0); // afterId=0 → full server transcript
+        if (data && data.messages && data.messages.length) msgs = data.messages;
+      }
+      if (!msgs.length) {
+        // Fallback: build from the client-side history (no server memory).
+        msgs = history.map((m, i) => ({
+          id: i,
+          role: m.role === 'user' ? 'visitor' : 'ai',
+          content: m.content,
+          created_at: m.ts ? Math.floor(m.ts / 1000) : undefined,
+        }));
+      }
+      if (!msgs.length) { addSystem('There’s no conversation to download yet.'); return; }
+
+      const blob = new Blob([buildTranscript(msgs)], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rebirth-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    // Rebi signalled the enquiry looks resolved — offer a Rebi bubble + actions (once).
+    const showResolvedPrompt = () => {
+      if (document.getElementById('reb-resolved')) return;
+      addBubble(
+        'assistant',
+        format('Feel free to download a copy of our chat, or start a new one below.')
+      );
+      const row = document.createElement('div');
+      row.id = 'reb-resolved';
+      row.className = 'reb-actions';
+
+      const dl = document.createElement('button');
+      dl.type = 'button';
+      dl.className = 'reb-action-btn reb-action-primary';
+      dl.innerHTML = DL_SVG + '<span>Download Chat</span>';
+      dl.addEventListener('click', () => downloadTranscript());
+
+      const nc = document.createElement('button');
+      nc.type = 'button';
+      nc.className = 'reb-action-btn reb-action-secondary';
+      nc.innerHTML = NEW_SVG + '<span>New Chat</span>';
+      nc.addEventListener('click', () => newChat());
+
+      row.appendChild(dl);
+      row.appendChild(nc);
+      log.appendChild(row);
+      scroll();
+    };
+
+    // Start a fresh conversation — clears the client session so the next message
+    // mints a new one. (Old session is left in D1 and lazily cleaned up.)
+    const newChat = () => {
+      stopPolling();
+      try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      sessionId = null;
+      history = [];
+      status = 'ai_active';
+      lastId = 0;
+      seen.clear();
+      humanArrived = false;
+      escDeadline = 0;
+      greeted = false;
+      hideContactPrompt();
+      renderHistory(); // clears the log and shows a fresh greeting
+      // A new conversation is a new "first message" — reset Turnstile for a fresh token.
+      if (TURNSTILE_KEY) {
+        if (turnstileBox) turnstileBox.hidden = false;
+        try { (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset(); } catch { /* ignore */ }
+      }
+      setTimeout(() => input.focus(), 30);
+    };
+
+    // --- Handoff: escalation, polling, contact ---
+    const stopPolling = () => {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    };
+
+    const showTimeoutFallback = () => {
+      escDeadline = 0;
+      addSystem("Our team hasn't jumped in yet — someone will follow up with you as soon as they can. You can also reach us on [DEALER_PHONE] or via /contact.");
+    };
+
+    const pollOnce = async () => {
+      if (document.hidden || !sessionId) return;
+      const data = await pollFetch(lastId);
+      if (!data) return;
+      if (data.status) status = data.status;
+      for (const m of data.messages) {
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+        if (m.id > lastId) lastId = m.id;
+        if (m.role === 'human') { humanArrived = true; escDeadline = 0; }
+        addBubble(serverRole(m.role), format(m.content));
+      }
+      if (status === 'closed') {
+        addSystem('This chat has been closed. Send a message to start a new one.');
+        stopPolling();
+        return;
+      }
+      if (escDeadline && !humanArrived && Date.now() > escDeadline) showTimeoutFallback();
+    };
+
+    const startPolling = () => {
+      stopPolling();
+      pollTimer = setInterval(pollOnce, POLL_MS);
+    };
+
+    const showContactPrompt = () => {
+      if (contactForm) contactForm.hidden = false;
+    };
+    const hideContactPrompt = () => {
+      if (contactForm) contactForm.hidden = true;
+    };
+
+    // Enter the handoff UI. `sysId` is the server id of the connecting message.
+    const onEscalated = async () => {
+      status = 'escalated';
+      humanArrived = false;
+      escDeadline = Date.now() + ESC_TIMEOUT_MS;
+      const data = await pollFetch(0); // authoritative hydrate
+      if (data && data.messages) renderFromServer(data.messages);
+      if (data && data.status) status = data.status;
+      showContactPrompt();
+      startPolling();
+    };
+
+    // --- Result handling shared by JSON + stream-done ---
+    const applySession = (id?: string) => {
+      if (id && id !== sessionId) storeSession(id);
+    };
+
+    // --- Sending ---
+    const postChat = (payload: Record<string, unknown>) =>
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+    const basePayload = (): Record<string, unknown> => {
+      const p: Record<string, unknown> = { messages: history };
+      if (sessionId) p.sessionId = sessionId;
+      // Turnstile token only matters on the very first message.
+      if (TURNSTILE_KEY && !sessionId) p.turnstileToken = getTurnstileToken();
+      return p;
+    };
+
+    // Handle a non-streaming JSON reply.
+    const handleJson = (data: any) => {
+      applySession(data.sessionId);
+      if (typeof data.lastId === 'number') { lastId = Math.max(lastId, data.lastId); seen.add(data.lastId); }
+      if (data.status) status = data.status;
+
+      if (data.status === 'escalated') { onEscalated(); return; }
+      if (data.status === 'human_active') { startPolling(); return; }
+
+      if (data.reply) {
+        const ts = Date.now();
+        history.push({ role: 'assistant', content: data.reply, ts });
+        addBubble('assistant', format(data.reply), ts);
+        save();
+        if (data.resolved) showResolvedPrompt();
+      } else if (data.error) {
+        addBubble('error', escapeHtml(data.error));
+      }
+    };
+
+    // Handle a streamed (SSE) reply. Falls back to a JSON re-request on error.
+    const handleStream = async (res: Response, retryPayload: Record<string, unknown>) => {
+      const reader = res.body?.getReader();
+      if (!reader) { hideTyping(); return; }
+      const decoder = new TextDecoder();
+      let buf = '';
+      let bubble: HTMLElement | null = null;
+      let acc = '';
+      let started = false;
+      let finished = false;
+
+      const ensureBubble = () => {
+        if (!started) { hideTyping(); bubble = addBubble('assistant', ''); started = true; }
+      };
+
+      const handleEvent = (evt: any) => {
+        if (evt.type === 'delta') {
+          ensureBubble();
+          acc += evt.text;
+          if (bubble) { bubble.innerHTML = format(acc); scroll(); }
+        } else if (evt.type === 'done') {
+          finished = true;
+          applySession(evt.sessionId);
+          if (typeof evt.lastId === 'number') { lastId = Math.max(lastId, evt.lastId); seen.add(evt.lastId); }
+          if (evt.status) status = evt.status;
+          if (acc) { history.push({ role: 'assistant', content: acc, ts: Date.now() }); save(); }
+          if (evt.resolved) showResolvedPrompt();
+        } else if (evt.type === 'escalate') {
+          finished = true;
+          applySession(evt.sessionId);
+          hideTyping();
+          onEscalated();
+        }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          try { handleEvent(JSON.parse(line.slice(5).trim())); } catch { /* ignore */ }
+          if (started && !bubble) { /* noop */ }
+        }
+      }
+
+      if (!finished) {
+        // Stream ended without a terminal event (primary error) → retry as JSON
+        // so the server-side failsafe (primary → fallback) runs.
+        hideTyping();
+        if (!started) {
+          showTyping();
+          try {
+            const jr = await postChat({ ...retryPayload, stream: false });
+            const ct = jr.headers.get('Content-Type') || '';
+            hideTyping();
+            if (ct.includes('application/json')) handleJson(await jr.json());
+            else addBubble('error', 'Sorry, something went wrong. Please try again.');
+          } catch { hideTyping(); addBubble('error', 'Network error — please try again.'); }
+        }
+      }
+    };
+
+    const send = async (text: string) => {
+      if (busy || !text.trim()) return;
+
+      // First message + Turnstile enabled but no token yet → nudge and wait.
+      if (TURNSTILE_KEY && !sessionId && !getTurnstileToken()) {
+        ensureTurnstile();
+        addSystem('Please complete the quick verification above, then send again.');
+        return;
+      }
+
+      busy = true;
+      sendBtn.disabled = true;
+
+      const ts = Date.now();
+      history.push({ role: 'user', content: text, ts });
+      addBubble('user', format(text), ts);
+      save();
+      showTyping();
+
+      const payload = basePayload();
+      const wantStream = USE_STREAM && (status === 'ai_active' || status === 'closed');
+
+      try {
+        const res = await postChat(wantStream ? { ...payload, stream: true } : payload);
+        const ct = res.headers.get('Content-Type') || '';
+        if (ct.includes('text/event-stream')) {
+          await handleStream(res, payload);
+        } else {
+          hideTyping();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const data: any = await res.json().catch(() => ({}));
+          if (res.ok) handleJson(data);
+          else handleJson(data.error ? data : { error: 'Sorry, something went wrong. Please try again.' });
+        }
+      } catch {
+        hideTyping();
+        addBubble('error', 'Network error — please check your connection and try again.');
+      } finally {
+        busy = false;
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    };
+
+    // --- Contact submission ---
+    contactForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const value = (contactInput?.value || '').trim();
+      if (!value) { hideContactPrompt(); return; }
+      hideContactPrompt();
+      try {
+        const res = await postChat(sessionId ? { sessionId, contact: value } : { contact: value });
+        await res.json().catch(() => ({}));
+      } catch { /* best-effort */ }
+      addSystem("Thanks — our team has your details and will follow up if you're away.");
+    });
+
+    // --- Panel open/close + sync ---
+    const syncOnOpen = async () => {
+      if (!sessionId) return;
+      const data = await pollFetch(0);
+      if (!data || !data.status) return;
+      status = data.status;
+      if (status === 'escalated' || status === 'human_active') {
+        renderFromServer(data.messages);
+        startPolling();
+        if (status === 'escalated' && !data.messages.some((m) => m.role === 'human')) showContactPrompt();
+      } else if (history.length === 0 && data.messages.length > 0) {
+        // Returning visitor whose client history was cleared — rehydrate.
+        renderFromServer(data.messages);
+      } else {
+        lastId = data.lastId;
+      }
+    };
+
+    const openPanel = () => {
+      panel.hidden = false;
+      root.classList.add('reb-open');
+      launcher.setAttribute('aria-expanded', 'true');
+      renderHistory();
+      if (TURNSTILE_KEY && !sessionId) ensureTurnstile();
+      syncOnOpen();
+      setTimeout(() => input.focus(), 50);
+    };
+    const closePanel = () => {
+      panel.hidden = true;
+      root.classList.remove('reb-open');
+      launcher.setAttribute('aria-expanded', 'false');
+      launcher.focus();
+    };
+    const toggle = () => (panel.hidden ? openPanel() : closePanel());
+
+    launcher.addEventListener('click', toggle);
+    closeBtn.addEventListener('click', closePanel);
+    downloadBtn?.addEventListener('click', () => { downloadTranscript(); });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) closePanel();
+    });
+
+    // Resume polling promptly when the tab returns to the foreground.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && pollTimer) pollOnce();
+    });
+
+    // Auto-grow textarea.
+    const autogrow = () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 96) + 'px';
+    };
+    input.addEventListener('input', autogrow);
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      autogrow();
+      send(text);
+    });
+  }
+</script>

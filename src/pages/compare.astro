@@ -4,6 +4,7 @@ export const prerender = false;
 import '../styles/global.css';
 import { client } from '../sanity/lib/client';
 import { urlFor } from '../sanity/lib/image';
+import ChatWidget from '../components/widgets/ChatWidget.astro';
 import {
   type Listing,
   type ListingDetail,
@@ -257,5 +258,8 @@ const description = 'Compare listings side by side.';
         </a>
       </footer>
     </div>
+
+    <!-- Floating AI chat assistant (Rebi) — self-contained global overlay -->
+    <ChatWidget />
   </body>
 </html>

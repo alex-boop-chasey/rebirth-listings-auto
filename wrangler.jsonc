@@ -10,5 +10,23 @@
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	// Chatbot persistent conversation memory. `database_id: "local"` is a dev
+	// placeholder — Miniflare creates a local SQLite store during `astro dev`.
+	// TODO: replace with the real D1 id when the CF resource is provisioned.
+	"d1_databases": [
+		{
+			"binding": "CHAT_DB",
+			"database_name": "astro-listings-chat",
+			"database_id": "local"
+		}
+	],
+	// Chatbot per-IP rate limiting. `id: "local"` is a dev placeholder.
+	// TODO: replace with the real KV namespace id when provisioned.
+	"kv_namespaces": [
+		{
+			"binding": "RATE_LIMIT_KV",
+			"id": "local"
+		}
+	]
 }
