@@ -245,7 +245,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   .reb-close:hover { background: rgb(255 255 255 / 18%); }
   .reb-close svg { width: 1.15rem; height: 1.15rem; }
 
-  /* Action buttons (shown when Rebi wraps up: Download Chat / New Chat) */
+  /* Action buttons — shared by the end-chat dialog and the inline wrap-up card */
   .reb-actions { display: flex; gap: 0.5rem; margin: 0.1rem 0 0.3rem; }
   .reb-action-btn {
     flex: 1;
@@ -407,6 +407,8 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   .reb-confirm-title { font-size: 1rem; font-weight: 600; margin: 0 1.25rem 0.35rem 0; color: var(--reb-text); }
   .reb-confirm-sub { font-size: 0.8rem; color: var(--reb-muted); margin: 0 0 0.9rem; }
   .reb-confirm-actions { flex-direction: column; } /* stacked — the primary label is long */
+  /* Inline wrap-up card: identical to the dialog card, just spaced inside the log. */
+  #reb-resolved { margin-top: 0.5rem; }
 
   @media (prefers-reduced-motion: reduce) {
     .reb-panel, .reb-launcher, .reb-typing span, .reb-mic.reb-recording { animation: none; transition: none; }
@@ -430,14 +432,6 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   const PERSON_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/></svg>';
-
-  // Action-button icons.
-  const DL_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-  const NEW_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M12 5v14"/><path d="M5 12h14"/></svg>';
 
   type WidgetRole = 'user' | 'assistant' | 'human' | 'system' | 'error';
   type Msg = { role: 'user' | 'assistant'; content: string; ts?: number };
@@ -740,31 +734,51 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     };
 
     // Rebi signalled the enquiry looks resolved — offer a Rebi bubble + actions (once).
+    // Inline wrap-up card — same visual language as the end-chat dialog (heading /
+    // subtitle / stacked primary+secondary), but it lives inline at the bottom of
+    // the log and scrolls with the conversation rather than being a modal overlay.
     const showResolvedPrompt = () => {
       if (document.getElementById('reb-resolved')) return;
-      addBubble(
-        'assistant',
-        format('Feel free to download a copy of our chat, or start a new one below.')
-      );
+
+      const card = document.createElement('div');
+      card.id = 'reb-resolved';
+      card.className = 'reb-confirm-card'; // reuse the dialog card styling verbatim
+
+      const h = document.createElement('h2');
+      h.className = 'reb-confirm-title';
+      h.textContent = "That's everything for now";
+
+      const sub = document.createElement('p');
+      sub.className = 'reb-confirm-sub';
+      sub.textContent = 'Download a copy of the chat, or start fresh next time.';
+
       const row = document.createElement('div');
-      row.id = 'reb-resolved';
-      row.className = 'reb-actions';
+      row.className = 'reb-actions reb-confirm-actions';
 
       const dl = document.createElement('button');
       dl.type = 'button';
       dl.className = 'reb-action-btn reb-action-primary';
-      dl.innerHTML = DL_SVG + '<span>Download Chat</span>';
-      dl.addEventListener('click', () => downloadTranscript());
+      dl.textContent = 'Download & end chat';
 
-      const nc = document.createElement('button');
-      nc.type = 'button';
-      nc.className = 'reb-action-btn reb-action-secondary';
-      nc.innerHTML = NEW_SVG + '<span>New Chat</span>';
-      nc.addEventListener('click', () => newChat());
+      const end = document.createElement('button');
+      end.type = 'button';
+      end.className = 'reb-action-btn reb-action-secondary';
+      end.textContent = 'End chat';
+
+      dl.addEventListener('click', async () => {
+        dl.disabled = true; // guard against a double-tap during the await
+        end.disabled = true;
+        try { await downloadTranscript(); } catch { /* still end the chat */ }
+        endChat(); // must run AFTER the download — newChat() nulls the sessionId it needs
+      });
+      end.addEventListener('click', () => endChat());
 
       row.appendChild(dl);
-      row.appendChild(nc);
-      log.appendChild(row);
+      row.appendChild(end);
+      card.appendChild(h);
+      card.appendChild(sub);
+      card.appendChild(row);
+      log.appendChild(card);
       scroll();
     };
 
