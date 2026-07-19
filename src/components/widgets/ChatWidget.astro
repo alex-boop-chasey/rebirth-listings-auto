@@ -38,6 +38,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
+    <span id="reb-badge" class="reb-badge" hidden aria-hidden="true"></span>
   </button>
 
   <!-- Chat panel -->
@@ -58,6 +59,11 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
         </div>
       </div>
       <div class="reb-head-actions">
+        <button id="reb-minimise" class="reb-close" type="button" aria-label="Minimise chat" title="Minimise">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
         <button id="reb-download" class="reb-close" type="button" aria-label="Download chat transcript" title="Download transcript">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -117,6 +123,24 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       </button>
     </form>
     <p class="reb-foot">Rebi is an AI assistant and can make mistakes. For anything important, <a href="/contact">contact our team</a>.</p>
+
+    <!-- End-chat confirmation (opened by the header X; copy swapped in JS during a handoff) -->
+    <div id="reb-confirm" class="reb-confirm" role="dialog" aria-modal="true" aria-labelledby="reb-confirm-title" hidden>
+      <div class="reb-confirm-card">
+        <button id="reb-confirm-x" class="reb-close reb-confirm-x" type="button" aria-label="Dismiss">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <h2 id="reb-confirm-title" class="reb-confirm-title">End this chat?</h2>
+        <p id="reb-confirm-sub" class="reb-confirm-sub">This will clear the conversation and start fresh next time.</p>
+        <div class="reb-actions reb-confirm-actions">
+          <button id="reb-confirm-primary" class="reb-action-btn reb-action-primary" type="button">Download &amp; end chat</button>
+          <button id="reb-confirm-secondary" class="reb-action-btn reb-action-secondary" type="button">End chat</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -156,6 +180,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     box-shadow: 0 10px 25px -5px rgb(1 97 239 / 45%);
     transition: transform 0.15s ease, background 0.15s ease;
     margin-left: auto;
+    position: relative; /* anchors the unread badge */
   }
   .reb-launcher:hover { background: var(--reb-primary-hover); transform: translateY(-2px); }
   .reb-launcher:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -163,6 +188,19 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   .reb-ico-close { display: none; }
   .reb-chat.reb-open .reb-ico-chat { display: none; }
   .reb-chat.reb-open .reb-ico-close { display: block; }
+
+  /* Launcher badge — iOS-style dot shown when a conversation waits behind a hidden panel */
+  .reb-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+    background: #ef4444;
+    border: 2px solid var(--reb-primary); /* subtle ring matching the launcher */
+  }
+  .reb-badge[hidden] { display: none; }
 
   /* Panel */
   .reb-panel {
@@ -330,6 +368,33 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   .reb-foot { font-size: 0.68rem; color: var(--reb-muted); text-align: center; margin: 0; padding: 0 0.75rem 0.6rem; }
   .reb-foot a { color: var(--reb-muted); text-decoration: underline; }
 
+  /* End-chat confirmation overlay */
+  .reb-confirm {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgb(0 0 0 / 55%);
+  }
+  .reb-confirm[hidden] { display: none; }
+  .reb-confirm-card {
+    position: relative;
+    width: 100%;
+    background: var(--reb-panel-bg);
+    border: 1px solid var(--reb-panel-border);
+    border-radius: 0.9rem;
+    padding: 1.25rem 1.1rem 1.1rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 60%);
+  }
+  .reb-confirm-x { position: absolute; top: 0.5rem; right: 0.5rem; color: var(--reb-muted); }
+  .reb-confirm-x:hover { background: rgb(255 255 255 / 10%); color: var(--reb-text); }
+  .reb-confirm-title { font-size: 1rem; font-weight: 600; margin: 0 1.25rem 0.35rem 0; color: var(--reb-text); }
+  .reb-confirm-sub { font-size: 0.8rem; color: var(--reb-muted); margin: 0 0 0.9rem; }
+  .reb-confirm-actions { flex-direction: column; } /* stacked — the primary label is long */
+
   @media (prefers-reduced-motion: reduce) {
     .reb-panel, .reb-launcher, .reb-typing span { animation: none; transition: none; }
   }
@@ -377,6 +442,16 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   const turnstileBox = document.getElementById('reb-turnstile');
   const contactForm = document.getElementById('reb-contact') as HTMLFormElement | null;
   const contactInput = document.getElementById('reb-contact-input') as HTMLInputElement | null;
+  // Minimise/badge/end-chat-dialog elements — optional-chained (not in the hard
+  // guard below) so a markup slip degrades gracefully instead of killing the widget.
+  const minimiseBtn = document.getElementById('reb-minimise');
+  const badge = document.getElementById('reb-badge');
+  const confirmEl = document.getElementById('reb-confirm');
+  const confirmTitle = document.getElementById('reb-confirm-title');
+  const confirmSub = document.getElementById('reb-confirm-sub');
+  const confirmPrimary = document.getElementById('reb-confirm-primary') as HTMLButtonElement | null;
+  const confirmSecondary = document.getElementById('reb-confirm-secondary') as HTMLButtonElement | null;
+  const confirmX = document.getElementById('reb-confirm-x');
 
   if (root && launcher && panel && closeBtn && log && form && input && sendBtn) {
     const STORAGE_KEY = 'reb-chat-history';
@@ -392,7 +467,6 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
     let history: Msg[] = [];
     let busy = false;
-    let greeted = false;
 
     // Handoff state.
     type Status = 'ai_active' | 'escalated' | 'human_active' | 'closed' | null;
@@ -538,10 +612,10 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     const renderHistory = () => {
       log.innerHTML = '';
       lastTs = 0;
-      if (!greeted) {
-        addBubble('assistant', format(GREETING), history[0]?.ts);
-        greeted = true;
-      }
+      // Always render the greeting — the log was just cleared, so it can't
+      // duplicate, and gating on a "greeted" flag left the panel blank on any
+      // reopen with empty history (e.g. after end-chat reset while minimised).
+      addBubble('assistant', format(GREETING), history[0]?.ts);
       for (const m of history) addBubble(m.role, format(m.content), m.ts);
     };
 
@@ -551,7 +625,6 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       lastTs = 0;
       seen.clear();
       addBubble('assistant', format(GREETING));
-      greeted = true;
       for (const m of messages) {
         addBubble(serverRole(m.role), format(m.content));
         seen.add(m.id);
@@ -692,7 +765,6 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       seen.clear();
       humanArrived = false;
       escDeadline = 0;
-      greeted = false;
       hideContactPrompt();
       renderHistory(); // clears the log and shows a fresh greeting
       // A new conversation is a new "first message" — reset Turnstile for a fresh token.
@@ -700,7 +772,8 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
         if (turnstileBox) turnstileBox.hidden = false;
         try { (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset(); } catch { /* ignore */ }
       }
-      setTimeout(() => input.focus(), 30);
+      // Skip the refocus when the panel is hidden (end-chat resets while closing).
+      setTimeout(() => { if (!panel.hidden) input.focus(); }, 30);
     };
 
     // --- Handoff: escalation, polling, contact ---
@@ -940,6 +1013,48 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       }
     };
 
+    // Launcher badge: a conversation is waiting behind a hidden panel.
+    const updateBadge = () => {
+      if (badge) badge.hidden = !(panel.hidden && (sessionId || history.length > 0));
+    };
+
+    // --- End-chat confirmation dialog ---
+    let confirmHandoff = false;
+
+    const closeConfirm = (refocus = true) => {
+      if (confirmEl) confirmEl.hidden = true;
+      if (refocus) closeBtn.focus(); // back to the X that opened it
+    };
+
+    const openConfirm = () => {
+      if (!confirmEl || !confirmPrimary || !confirmSecondary) { closePanel(); return; } // graceful fallback
+      // Nothing to end (no session, nothing typed — greeting only) → X just minimises.
+      // Gate on sessionId, not local history alone, so a returning visitor whose
+      // transcript is still rehydrating can never bypass the confirmation.
+      if (!sessionId && history.length === 0) { closePanel(); return; }
+      confirmHandoff = status === 'escalated' || status === 'human_active';
+      if (confirmTitle) confirmTitle.textContent = confirmHandoff
+        ? 'A team member is being connected'
+        : 'End this chat?';
+      if (confirmSub) confirmSub.textContent = confirmHandoff
+        ? 'If you end the chat now you may miss their reply.'
+        : 'This will clear the conversation and start fresh next time.';
+      confirmPrimary.textContent = confirmHandoff ? 'Minimise instead' : 'Download & end chat';
+      confirmSecondary.textContent = confirmHandoff ? 'End chat anyway' : 'End chat';
+      confirmPrimary.disabled = false;
+      confirmSecondary.disabled = false;
+      confirmEl.hidden = false;
+      confirmPrimary.focus();
+    };
+
+    // Full reset + hide: reuses newChat() (storage, state, Turnstile) — closePanel
+    // clears the badge and any dialog state.
+    const endChat = () => {
+      closeConfirm(false);
+      newChat();
+      closePanel();
+    };
+
     const openPanel = () => {
       panel.hidden = false;
       root.classList.add('reb-open');
@@ -947,23 +1062,44 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       renderHistory();
       if (TURNSTILE_KEY && !sessionId) ensureTurnstile();
       syncOnOpen();
+      updateBadge();
       setTimeout(() => input.focus(), 50);
     };
     const closePanel = () => {
       panel.hidden = true;
       root.classList.remove('reb-open');
       launcher.setAttribute('aria-expanded', 'false');
+      closeConfirm(false); // never leave a stale dialog for the next open
+      updateBadge();
       launcher.focus();
     };
     const toggle = () => (panel.hidden ? openPanel() : closePanel());
 
     launcher.addEventListener('click', toggle);
-    closeBtn.addEventListener('click', closePanel);
+    closeBtn.addEventListener('click', openConfirm); // X → confirm end-chat (minimise is the chevron)
+    minimiseBtn?.addEventListener('click', closePanel);
     downloadBtn?.addEventListener('click', () => { downloadTranscript(); });
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !panel.hidden) closePanel();
+    confirmX?.addEventListener('click', () => closeConfirm());
+    confirmEl?.addEventListener('click', (e) => {
+      if (e.target === confirmEl) closeConfirm(); // backdrop only — card clicks don't dismiss
     });
+    confirmPrimary?.addEventListener('click', async () => {
+      if (confirmHandoff) { closeConfirm(false); closePanel(); return; } // "Minimise instead"
+      confirmPrimary.disabled = true; // guard against double-click during the await
+      if (confirmSecondary) confirmSecondary.disabled = true;
+      try { await downloadTranscript(); } catch { /* still end the chat */ }
+      endChat(); // must run AFTER the download — newChat() nulls the sessionId it needs
+    });
+    confirmSecondary?.addEventListener('click', () => endChat());
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (confirmEl && !confirmEl.hidden) { closeConfirm(); return; } // dialog first
+      if (!panel.hidden) closePanel();
+    });
+
+    updateBadge(); // returning visitor: show the badge on page load
 
     // Resume polling promptly when the tab returns to the foreground.
     document.addEventListener('visibilitychange', () => {
