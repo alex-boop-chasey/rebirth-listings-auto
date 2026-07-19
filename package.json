@@ -1,5 +1,5 @@
 {
-  "name": "astro-listings-pro-demo",
+  "name": "rebirth-listings-auto",
   "comment": "Pro/commercial demo, forked from astro-listings-demo.",
   "type": "module",
   "version": "0.0.1",
@@ -14,6 +14,7 @@
     "seed": "tsx scripts/seed.ts",
     "seed:clean": "tsx scripts/seed.ts --clean",
     "import:bundaberg": "tsx scripts/import-bundaberg.ts",
+    "import:remax": "tsx scripts/import-remax.ts",
     "generate-types": "wrangler types"
   },
   "dependencies": {

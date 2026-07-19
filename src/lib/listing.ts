@@ -36,11 +36,14 @@ export const LISTING_FIELDS = `_id, title, slug, description, price, currency, s
 // --- Formatting helpers ------------------------------------------------------
 
 export function formatPrice(price: number, currency: string): string {
+  // No/zero price = "price on application" (common in real estate) — show a
+  // human label instead of "$0".
+  if (!price || price <= 0) return 'Contact agent';
   return new Intl.NumberFormat('en-AU', {
     style: 'currency',
     currency: currency || 'AUD',
     maximumFractionDigits: 0,
-  }).format(price ?? 0);
+  }).format(price);
 }
 
 export function formatDate(iso: string): string {

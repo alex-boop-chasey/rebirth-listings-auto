@@ -1,4 +1,4 @@
-# Astro Starter Kit: Minimal
+# rebirth-listings-auto
 
 ```sh
 npm create astro@latest -- --template minimal
