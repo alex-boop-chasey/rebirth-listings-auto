@@ -5,8 +5,13 @@
 # 'unsafe-inline' in script-src/style-src is required because Astro emits inline
 # scripts and Tailwind emits inline styles. If we later add a nonce-based CSP we
 # can drop 'unsafe-inline' and tighten this further.
+#
+# https://challenges.cloudflare.com in script-src + frame-src is required by the
+# chatbot's Turnstile gate (api.js + the challenge iframe) — without both, the
+# widget silently fails and first messages are stuck on "complete the quick
+# verification". See https://developers.cloudflare.com/turnstile/reference/content-security-policy/
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.sanity.io; font-src 'self' data:; connect-src 'self' https://*.api.sanity.io https://cdn.sanity.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.sanity.io; font-src 'self' data:; connect-src 'self' https://*.api.sanity.io https://cdn.sanity.io; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
