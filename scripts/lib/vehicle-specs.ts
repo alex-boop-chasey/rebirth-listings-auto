@@ -103,7 +103,14 @@ const ENUM_MAPS: Record<'bodyType' | 'transmission' | 'fuelType' | 'driveType' |
   ],
   fuelType: [
     { code: 'diesel', patterns: ['diesel'] },
-    { code: 'hybrid', patterns: ['hybrid'] },
+    // Hybrid MUST be tested before electric: "petrol-electric" (and its space/
+    // slash variants) is a hybrid drivetrain but contains the substring
+    // "electric", so it would otherwise fall through to the generic electric
+    // pattern. Specific-before-generic keeps it deterministic.
+    {
+      code: 'hybrid',
+      patterns: ['hybrid', 'petrol-electric', 'petrol electric', 'petrol/electric'],
+    },
     { code: 'electric', patterns: ['electric'] },
     { code: 'lpg', patterns: ['lpg', 'autogas'] },
     { code: 'petrol', patterns: ['petrol', 'unleaded', 'pulp', 'gasoline'] },
@@ -120,9 +127,24 @@ const ENUM_MAPS: Record<'bodyType' | 'transmission' | 'fuelType' | 'driveType' |
   ],
 };
 
+// Transmission signals used to detect genuinely-ambiguous compound values.
+const TRANSMISSION_AUTO_SIGNAL = /auto|cvt|dsg|dct|tiptronic/;
+const TRANSMISSION_MANUAL_SIGNAL = /manual/;
+
 function normaliseEnum(field: keyof typeof ENUM_MAPS, raw: string): string | null {
   const r = raw.toLowerCase().trim();
   if (!r) return null;
+  // Ambiguity guard: a transmission value carrying BOTH an automatic and a
+  // manual signal (e.g. "automated manual", "automatic with manual mode") can't
+  // be resolved by ordering — neither answer is clearly correct — so bail to a
+  // WARN rather than guess. Plain "…automatic" / "…manual" values are unaffected.
+  if (
+    field === 'transmission' &&
+    TRANSMISSION_AUTO_SIGNAL.test(r) &&
+    TRANSMISSION_MANUAL_SIGNAL.test(r)
+  ) {
+    return null;
+  }
   for (const { code, patterns } of ENUM_MAPS[field]) {
     if (code === r || patterns.some((p) => r.includes(p))) return code;
   }
