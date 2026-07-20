@@ -30,6 +30,8 @@ export function getChatEnv(): ChatEnv {
       (e.TELEGRAM_WEBHOOK_SECRET as string | undefined) ?? import.meta.env.TELEGRAM_WEBHOOK_SECRET,
     CHATBOT_TURNSTILE_SECRET_KEY:
       (e.CHATBOT_TURNSTILE_SECRET_KEY as string | undefined) ??
-      import.meta.env.CHATBOT_TURNSTILE_SECRET_KEY,
+      (e.TURNSTILE_RB_LISTINGS_AUTO_SECRET_KEY as string | undefined) ??
+      import.meta.env.CHATBOT_TURNSTILE_SECRET_KEY ??
+      import.meta.env.TURNSTILE_RB_LISTINGS_AUTO_SECRET_KEY,
   };
 }

@@ -75,7 +75,7 @@ export const TURNSTILE_ENABLED = true;
 // build time — the site key is public by design; the matching secret key lives
 // in the Worker env as CHATBOT_TURNSTILE_SECRET_KEY. Turnstile is auto-bypassed
 // on localhost, so local dev works regardless.
-export const TURNSTILE_SITE_KEY = '0x4AAAAAAD43gnB_V8uRCL6w';
+export const TURNSTILE_SITE_KEY = '0x4AAAAAAD5QEzrSVw6w9Fg9';
 
 // Per-IP rate limiting. Requires a Cloudflare KV namespace bound as RATE_LIMIT_KV
 // (see chatbot/README.md). If the binding is absent (e.g. local dev without KV),
