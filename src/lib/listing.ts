@@ -13,6 +13,20 @@ export interface ListingDetail {
   valueDate?: string;
 }
 
+// Typed, first-class automotive filter dimensions. Populated alongside (not
+// instead of) `details[]`; the search + filter feature queries these by their
+// lowercase enum codes. All optional — a listing may not know every value.
+export interface VehicleSpecs {
+  bodyType?: 'sedan' | 'hatchback' | 'suv' | 'ute' | 'wagon' | 'van' | 'coupe' | 'convertible';
+  transmission?: 'auto' | 'manual';
+  fuelType?: 'petrol' | 'diesel' | 'hybrid' | 'electric' | 'lpg';
+  driveType?: '2wd' | 'awd' | '4wd';
+  seatCount?: number;
+  year?: number;
+  odometer?: number;
+  condition?: 'new' | 'used' | 'demo';
+}
+
 export interface Listing {
   _id: string;
   title: string;
@@ -24,6 +38,7 @@ export interface Listing {
   images?: Parameters<typeof urlFor>[0][];
   category: string;
   details?: ListingDetail[];
+  vehicleSpecs?: VehicleSpecs;
   listingDate?: string;
 }
 
@@ -31,7 +46,8 @@ export interface Listing {
 // The full field set every listing query needs. Kept in one place so the
 // projection can't drift between index.astro, [slug].astro and compare.astro.
 export const LISTING_FIELDS = `_id, title, slug, description, price, currency, status, images, category,
-  details[]{ _key, label, value, valueType, valueNumber, unit, valueBoolean, valueDate }, listingDate`;
+  details[]{ _key, label, value, valueType, valueNumber, unit, valueBoolean, valueDate },
+  vehicleSpecs{ bodyType, transmission, fuelType, driveType, seatCount, year, odometer, condition }, listingDate`;
 
 // --- Formatting helpers ------------------------------------------------------
 

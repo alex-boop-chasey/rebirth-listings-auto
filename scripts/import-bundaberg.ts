@@ -25,6 +25,7 @@ import 'dotenv/config';
 import { createClient } from '@sanity/client';
 import { randomUUID } from 'node:crypto';
 import { AUTOMOTIVE_SPEC_LABELS } from '../src/sanity/templates/automotive';
+import { specsFromDetails } from './lib/vehicle-specs';
 
 const INDEX_URL = 'https://bundabergmotorgroup.com.au/new-vehicles/';
 const ORIGIN = 'https://bundabergmotorgroup.com.au';
@@ -332,6 +333,7 @@ function buildListingDoc(s: SourceVehicle, images: ImageRef[]) {
   const suffix = s.stockNumber ? `-${s.stockNumber}` : '';
   const slug = `${base.slice(0, 96 - suffix.length).replace(/-+$/g, '')}${suffix}`;
   const id = `import-bundaberg-${s.stockNumber ?? base}`;
+  const details = buildDetails(s);
   return {
     _id: id,
     _type: 'listing',
@@ -343,7 +345,9 @@ function buildListingDoc(s: SourceVehicle, images: ImageRef[]) {
     status: 'active',
     category: 'automotive',
     images,
-    details: buildDetails(s),
+    details,
+    // Typed spec fields derived from the same rows, via the shared mapper.
+    vehicleSpecs: specsFromDetails(details),
     listingDate: new Date().toISOString(),
   };
 }

@@ -142,6 +142,113 @@ export const listing = defineType({
       ],
     }),
 
+    // Typed automotive spec fields. Unlike the free-form `details` array above,
+    // these are first-class enums/numbers so the search + filter feature can
+    // query them reliably (URL params use the lowercase enum codes). Automotive
+    // only — hidden in the Studio for other verticals.
+    defineField({
+      name: 'vehicleSpecs',
+      title: 'Vehicle specs',
+      type: 'object',
+      description: 'Typed, filterable automotive dimensions. Shown for automotive listings only.',
+      hidden: ({ parent }) => parent?.category !== 'automotive',
+      options: { collapsible: true, collapsed: false },
+      fields: [
+        defineField({
+          name: 'bodyType',
+          title: 'Body type',
+          type: 'string',
+          description: 'Overall body style. Filterable.',
+          options: {
+            list: [
+              { title: 'Sedan', value: 'sedan' },
+              { title: 'Hatchback', value: 'hatchback' },
+              { title: 'SUV', value: 'suv' },
+              { title: 'Ute', value: 'ute' },
+              { title: 'Wagon', value: 'wagon' },
+              { title: 'Van', value: 'van' },
+              { title: 'Coupe', value: 'coupe' },
+              { title: 'Convertible', value: 'convertible' },
+            ],
+          },
+        }),
+        defineField({
+          name: 'transmission',
+          title: 'Transmission',
+          type: 'string',
+          description: 'Gearbox type. Filterable.',
+          options: {
+            list: [
+              { title: 'Automatic', value: 'auto' },
+              { title: 'Manual', value: 'manual' },
+            ],
+          },
+        }),
+        defineField({
+          name: 'fuelType',
+          title: 'Fuel type',
+          type: 'string',
+          description: 'Fuel/energy source. Filterable.',
+          options: {
+            list: [
+              { title: 'Petrol', value: 'petrol' },
+              { title: 'Diesel', value: 'diesel' },
+              { title: 'Hybrid', value: 'hybrid' },
+              { title: 'Electric', value: 'electric' },
+              { title: 'LPG', value: 'lpg' },
+            ],
+          },
+        }),
+        defineField({
+          name: 'driveType',
+          title: 'Drive type',
+          type: 'string',
+          description: 'Driven wheels. Filterable.',
+          options: {
+            list: [
+              { title: '2WD', value: '2wd' },
+              { title: 'AWD', value: 'awd' },
+              { title: '4WD', value: '4wd' },
+            ],
+          },
+        }),
+        defineField({
+          name: 'seatCount',
+          title: 'Seats',
+          type: 'number',
+          description: 'Number of seats. Filterable.',
+          validation: (Rule) => Rule.integer().min(1).max(20),
+        }),
+        defineField({
+          name: 'year',
+          title: 'Year',
+          type: 'number',
+          description: 'Model/build year. Filterable.',
+          validation: (Rule) => Rule.integer().min(1900),
+        }),
+        defineField({
+          name: 'odometer',
+          title: 'Odometer (km)',
+          type: 'number',
+          description: 'Odometer reading in kilometres. Filterable.',
+          validation: (Rule) => Rule.min(0),
+        }),
+        defineField({
+          name: 'condition',
+          title: 'Condition',
+          type: 'string',
+          description: 'Sale condition. Filterable.',
+          options: {
+            list: [
+              { title: 'New', value: 'new' },
+              { title: 'Used', value: 'used' },
+              { title: 'Demo', value: 'demo' },
+            ],
+          },
+        }),
+      ],
+    }),
+
     // Timestamps.
     defineField({
       name: 'listingDate',

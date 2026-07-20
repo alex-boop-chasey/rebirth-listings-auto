@@ -14,6 +14,7 @@
 import 'dotenv/config';
 import { createClient } from '@sanity/client';
 import { randomUUID } from 'node:crypto';
+import { specsFromDetails } from './lib/vehicle-specs';
 
 const projectId = process.env.PUBLIC_SANITY_PROJECT_ID;
 const dataset = process.env.PUBLIC_SANITY_DATASET;
@@ -225,7 +226,13 @@ export async function clean() {
 /** Create the sample listings. */
 export async function seed() {
   for (const doc of listings) {
-    const created = await client.create(doc);
+    // Populate the typed automotive spec fields from the same `details[]` the
+    // migration reads, so freshly-seeded listings match migrated ones.
+    const toCreate =
+      doc.category === 'automotive'
+        ? { ...doc, vehicleSpecs: specsFromDetails(doc.details) }
+        : doc;
+    const created = await client.create(toCreate);
     console.log(`Created "${doc.title}" (${created._id})`);
   }
   const count = await client.fetch<number>('count(*[_type == "listing"])');

@@ -15,6 +15,7 @@
     "seed:clean": "tsx scripts/seed.ts --clean",
     "import:bundaberg": "tsx scripts/import-bundaberg.ts",
     "import:remax": "tsx scripts/import-remax.ts",
+    "import:migrate-specs": "tsx scripts/migrate-details-to-specs.ts",
     "generate-types": "wrangler types"
   },
   "dependencies": {
