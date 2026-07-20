@@ -30,5 +30,9 @@ export {
 export { TIERS } from './tiers';
 export type { TierConfig } from './tiers';
 
+// Runtime configuration seam
+export { configureAI, getAIConfig, resetAIConfig } from './config';
+export type { AIConfig } from './config';
+
 // The three public functions
 export { generate, generateObject, generateStream } from './client';
