@@ -52,8 +52,7 @@ export const LISTING_FIELDS = `_id, title, slug, description, price, currency, s
 // --- Formatting helpers ------------------------------------------------------
 
 export function formatPrice(price: number, currency: string): string {
-  // No/zero price = "price on application" (common in real estate) — show a
-  // human label instead of "$0".
+  // No/zero price = "price on application" — show a human label instead of "$0".
   if (!price || price <= 0) return 'Contact agent';
   return new Intl.NumberFormat('en-AU', {
     style: 'currency',
@@ -155,11 +154,10 @@ export function detailIconName(label: string): string {
   return 'tag';
 }
 
-export function categoryIconName(category: string): string {
-  const c = (category ?? '').toLowerCase();
-  if (c.includes('auto') || c.includes('car') || c.includes('vehicle')) return 'car';
-  if (c.includes('real') || c.includes('estate') || c.includes('propert')) return 'building';
-  return 'image';
+// Automotive-only dataset — every listing is a vehicle. The parameter is kept
+// for call-site stability but no longer branches on category.
+export function categoryIconName(_category?: string): string {
+  return 'car';
 }
 
 // --- Comparison winner heuristic (hardcoded for the demo) --------------------

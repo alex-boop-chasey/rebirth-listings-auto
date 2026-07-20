@@ -37,7 +37,7 @@ const IMAGE_DELAY_MS = 250;
 const projectId = process.env.PUBLIC_SANITY_PROJECT_ID;
 const dataset = process.env.PUBLIC_SANITY_DATASET;
 const apiVersion = process.env.PUBLIC_SANITY_API_VERSION ?? '2024-01-01';
-const token = process.env.SANITY_API_TOKEN;
+const token = process.env.SANITY_TOKEN;
 
 if (!projectId || !dataset || !token) {
   throw new Error(

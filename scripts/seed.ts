@@ -19,7 +19,7 @@ import { specsFromDetails } from './lib/vehicle-specs';
 const projectId = process.env.PUBLIC_SANITY_PROJECT_ID;
 const dataset = process.env.PUBLIC_SANITY_DATASET;
 const apiVersion = process.env.PUBLIC_SANITY_API_VERSION ?? '2024-01-01';
-const token = process.env.SANITY_API_TOKEN;
+const token = process.env.SANITY_TOKEN;
 
 if (!projectId || !dataset || !token) {
   throw new Error(
@@ -137,82 +137,6 @@ const listings = [
     ],
     listingDate: '2026-06-20T00:00:00Z',
   },
-
-  // --- Real estate -----------------------------------------------------------
-  {
-    _type: 'listing',
-    title: 'Modern 3-Bed Family Home in Brunswick',
-    slug: { _type: 'slug', current: 'modern-3-bed-family-home-in-brunswick' },
-    description: [
-      block(
-        'Contemporary family home moments from Sydney Road. Open-plan living, ' +
-          'north-facing courtyard and a double garage. Walk to cafes and transport.',
-      ),
-    ],
-    price: 1250000,
-    currency: 'AUD',
-    status: 'active',
-    category: 'real-estate',
-    images: [],
-    details: [
-      detail({ label: 'Bedrooms', valueType: 'number', valueNumber: 3, value: '3' }),
-      detail({ label: 'Bathrooms', valueType: 'number', valueNumber: 2, value: '2' }),
-      detail({ label: 'Land Size', valueType: 'number', valueNumber: 480, unit: 'sqm', value: '480 sqm' }),
-      detail({ label: 'Property Type', valueType: 'text', value: 'House' }),
-      detail({ label: 'Pool', valueType: 'boolean', valueBoolean: false, value: 'No' }),
-    ],
-    listingDate: '2026-07-15T00:00:00Z',
-  },
-  {
-    _type: 'listing',
-    title: 'Renovated 2-Bed Apartment, South Yarra',
-    slug: { _type: 'slug', current: 'renovated-2-bed-apartment-south-yarra' },
-    description: [
-      block(
-        'Stylishly renovated apartment in a boutique block. Stone kitchen, secure ' +
-          'parking and a private balcony. Steps from Chapel Street and the Yarra.',
-      ),
-    ],
-    price: 720000,
-    currency: 'AUD',
-    status: 'active',
-    category: 'real-estate',
-    images: [],
-    details: [
-      detail({ label: 'Bedrooms', valueType: 'number', valueNumber: 2, value: '2' }),
-      detail({ label: 'Bathrooms', valueType: 'number', valueNumber: 1, value: '1' }),
-      detail({ label: 'Land Size', valueType: 'number', valueNumber: 95, unit: 'sqm', value: '95 sqm' }),
-      detail({ label: 'Property Type', valueType: 'text', value: 'Apartment' }),
-      detail({ label: 'Pool', valueType: 'boolean', valueBoolean: false, value: 'No' }),
-      // Exercises valueType: 'date'.
-      detail({ label: 'Available From', valueType: 'date', valueDate: '2026-08-01', value: '1 Aug 2026' }),
-    ],
-    listingDate: '2026-07-08T00:00:00Z',
-  },
-  {
-    _type: 'listing',
-    title: 'Coastal 4-Bed Retreat, Torquay',
-    slug: { _type: 'slug', current: 'coastal-4-bed-retreat-torquay' },
-    description: [
-      block(
-        'Architect-designed retreat a short stroll from the beach. Four generous ' +
-          'bedrooms, a solar-heated pool and expansive decking for entertaining.',
-      ),
-    ],
-    price: 1850000,
-    currency: 'AUD',
-    status: 'sold',
-    category: 'real-estate',
-    images: [],
-    details: [
-      detail({ label: 'Bedrooms', valueType: 'number', valueNumber: 4, value: '4' }),
-      detail({ label: 'Bathrooms', valueType: 'number', valueNumber: 3, value: '3' }),
-      detail({ label: 'Land Size', valueType: 'number', valueNumber: 650, unit: 'sqm', value: '650 sqm' }),
-      detail({ label: 'Property Type', valueType: 'text', value: 'House' }),
-      detail({ label: 'Pool', valueType: 'boolean', valueBoolean: true, value: 'Yes' }),
-    ],
-    listingDate: '2026-06-28T00:00:00Z',
-  },
 ];
 
 // --- Operations --------------------------------------------------------------
@@ -226,12 +150,10 @@ export async function clean() {
 /** Create the sample listings. */
 export async function seed() {
   for (const doc of listings) {
-    // Populate the typed automotive spec fields from the same `details[]` the
-    // migration reads, so freshly-seeded listings match migrated ones.
-    const toCreate =
-      doc.category === 'automotive'
-        ? { ...doc, vehicleSpecs: specsFromDetails(doc.details) }
-        : doc;
+    // Every seed listing is automotive — populate the typed spec fields from the
+    // same `details[]` the migration reads, so freshly-seeded listings match
+    // migrated ones.
+    const toCreate = { ...doc, vehicleSpecs: specsFromDetails(doc.details) };
     const created = await client.create(toCreate);
     console.log(`Created "${doc.title}" (${created._id})`);
   }

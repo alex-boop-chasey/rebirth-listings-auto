@@ -1,12 +1,11 @@
 import { defineArrayMember, defineField, defineType } from 'sanity';
 
 /**
- * Core listing document.
+ * Core listing document (automotive).
  *
- * Designed to be extensible: the `details` key/value array lets any listing
- * vertical (automotive, real estate, etc.) attach its own attributes without
- * schema migrations, while `defineType`/`defineField` keep future typed
- * additions type-safe and non-breaking.
+ * The `details` key/value array lets a listing attach arbitrary extra
+ * attributes without schema migrations, while `defineType`/`defineField` keep
+ * the typed spec fields type-safe and non-breaking.
  */
 export const listing = defineType({
   name: 'listing',
@@ -68,12 +67,15 @@ export const listing = defineType({
       name: 'category',
       title: 'Category',
       type: 'string',
-      description: 'Free text for now — will become a reference later.',
+      description: 'Fixed to "automotive" — this is an automotive-only dataset.',
+      initialValue: 'automotive',
+      readOnly: true,
+      hidden: true,
     }),
 
     // Extensible key/value metadata. Supports text, number, boolean and date types
-    // so values can be sorted/filtered (e.g. odometer, bedrooms, land size) while
-    // remaining flexible enough to work across verticals like automotive and real estate.
+    // so values can be sorted/filtered (e.g. odometer, service history) while
+    // remaining flexible enough for arbitrary extra details (sunroof, tow pack, …).
     defineField({
       name: 'details',
       title: 'Details',
@@ -150,8 +152,7 @@ export const listing = defineType({
       name: 'vehicleSpecs',
       title: 'Vehicle specs',
       type: 'object',
-      description: 'Typed, filterable automotive dimensions. Shown for automotive listings only.',
-      hidden: ({ parent }) => parent?.category !== 'automotive',
+      description: 'Typed, filterable automotive dimensions.',
       options: { collapsible: true, collapsed: false },
       fields: [
         defineField({

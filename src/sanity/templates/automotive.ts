@@ -3,9 +3,6 @@ import type { Template } from 'sanity';
 /**
  * Automotive listing vocabulary — the ordered spec labels for an automotive
  * listing. Array order = display order on the site.
- *
- * Deliberately independent of the real-estate template: this list is not shared,
- * merged, or cross-referenced with REAL_ESTATE_SPEC_LABELS.
  */
 export const AUTOMOTIVE_SPEC_LABELS: ReadonlyArray<{
   label: string;
