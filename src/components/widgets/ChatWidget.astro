@@ -1,6 +1,6 @@
 ---
 /**
- * Astro Motors — Floating Chat Widget
+ * Rebirth Listings Auto — Floating Chat Widget
  * ------------------------------------------------------------------
  * Site-wide launcher bubble (bottom-right) that opens an AI chat panel.
  * Talks to /api/chat (send) and /api/chat-poll (live handoff updates). Pure
@@ -27,7 +27,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     id="reb-launcher"
     class="reb-launcher"
     type="button"
-    aria-label="Open chat with Astro Motors"
+    aria-label="Open chat with Rebirth Listings Auto"
     aria-expanded="false"
     aria-controls="reb-panel"
   >
@@ -47,14 +47,14 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     class="reb-panel"
     role="dialog"
     aria-modal="false"
-    aria-label="Chat with Astro Motors"
+    aria-label="Chat with Rebirth Listings Auto"
     hidden
   >
     <header class="reb-head">
       <div class="reb-head-info">
         <span class="reb-dot" aria-hidden="true"></span>
         <div>
-          <p class="reb-head-title">Astro Motors</p>
+          <p class="reb-head-title">Rebirth Listings Auto</p>
           <p class="reb-head-sub">Ask Rebi, our AI assistant</p>
         </div>
       </div>
@@ -417,7 +417,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
 <script>
   const GREETING =
-    "Hi! I'm Rebi, the Astro Motors assistant. Ask me about our vehicles, financing, servicing, or trade-ins — I'm happy to help.";
+    "Hi! I'm Rebi, the Rebirth Listings Auto assistant. Ask me about our vehicles, financing, servicing, or trade-ins — I'm happy to help.";
 
   // Rebi's avatar — a friendly robot head (inline so it needs no external asset).
   const ROBOT_SVG =
@@ -686,7 +686,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
     const buildTranscript = (msgs: ServerMsg[]) => {
       const rule = '='.repeat(44);
-      const out = ['Astro Motors — Chat transcript', rule, ''];
+      const out = ['Rebirth Listings Auto — Chat transcript', rule, ''];
       for (const m of msgs) {
         if (m.role === 'system') {
           out.push(`— ${m.content}`, '');
@@ -697,7 +697,7 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       }
       out.push(
         rule,
-        'Astro Motors',
+        'Rebirth Listings Auto',
         'Phone: [DEALER_PHONE]',
         'Contact: [DEALER_URL]/contact',
         `Saved: ${new Date().toLocaleString()}`

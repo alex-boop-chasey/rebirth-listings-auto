@@ -4,19 +4,23 @@ import { client } from '../sanity/lib/client';
 import ListingCard, { type Listing } from '../components/ListingCard.astro';
 import CompareTray from '../components/CompareTray.astro';
 import ChatWidget from '../components/widgets/ChatWidget.astro';
-import { iconSvg, LISTING_FIELDS } from '../lib/listing';
+import { iconSvg } from '../lib/listing';
+import { LISTING_FIELDS } from '../lib/listing';
 
+// Car dealership: only vehicle listings are shown here.
 const listings = await client.fetch<Listing[]>(
-  `*[_type == "listing"]{ ${LISTING_FIELDS} } | order(listingDate desc)`,
+  `*[_type == "listing" && category == "automotive"]{ ${LISTING_FIELDS} } | order(listingDate desc)`,
 );
 
-const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
-const title = 'astro-listings — a drop-in listings component for Astro';
+const vehicleCount = listings.length;
+const year = new Date().getFullYear();
+
+const title = 'Rebirth Listings Auto — quality vehicles, ready to drive away';
 const description =
-  'A drop-in listings component for Astro, powered by Sanity CMS. One component adapts to any listing vertical — cars, real estate, gear, jobs.';
+  'Browse the current range at Rebirth Listings Auto. Every vehicle in our inventory, kept up to date — find your next car and talk to our team.';
 const canonicalURL = new URL(
   Astro.url.pathname,
-  Astro.site ?? 'https://astro-listings-demo.pages.dev',
+  Astro.site ?? 'https://rebirth-listings-auto.pages.dev',
 ).href;
 ---
 
@@ -54,24 +58,18 @@ const canonicalURL = new URL(
       <!-- Header -->
       <header class="flex items-center justify-between py-6">
         <a href="/" class="text-base font-semibold tracking-tight text-slate-900">
-          astro<span class="text-slate-400">-listings</span>
+          Rebirth Listings<span class="text-slate-400"> Auto</span>
         </a>
         <nav class="flex items-center gap-6 text-sm">
-          <a
-            href={REPO}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-slate-500 transition hover:text-slate-900"
-          >
-            GitHub
+          <a href="#inventory" class="text-slate-500 transition hover:text-slate-900">
+            Inventory
           </a>
           <a
             href="#"
-            aria-disabled="true"
-            title="Coming soon"
-            class="text-slate-400 transition hover:text-slate-600"
+            id="nav-contact"
+            class="text-slate-500 transition hover:text-slate-900"
           >
-            npm
+            Contact
           </a>
         </nav>
       </header>
@@ -83,81 +81,50 @@ const canonicalURL = new URL(
             class="inline-flex items-center gap-1.5 rounded-full bg-slate-900/5 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-900/10"
           >
             <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            Live demo
+            In stock now
           </span>
           <h1 class="mt-6 text-4xl font-bold tracking-tight text-slate-900 md:text-6xl">
-            One component. Any vertical.
+            Your next car is waiting.
           </h1>
           <p class="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-            Cars, real estate, gear, jobs — the same component adapts to any listing type
-            through Sanity's flexible schema.
+            Browse the current range at Rebirth Listings Auto — quality vehicles, full specs,
+            and a team ready to help you drive away happy.
           </p>
         </section>
 
-        <!-- Vertical toggle -->
-        <div class="flex justify-center">
-          <div
-            role="group"
-            aria-label="Filter listings by category"
-            class="inline-flex rounded-full bg-white p-1 text-sm font-medium shadow-sm ring-1 ring-slate-200"
-          >
-            <button
-              type="button"
-              data-filter="all"
-              aria-pressed="true"
-              class="rounded-full bg-slate-900 px-4 py-2 text-white transition"
-            >
-              All
-            </button>
-            <button
-              type="button"
-              data-filter="automotive"
-              aria-pressed="false"
-              class="rounded-full px-4 py-2 text-slate-600 transition hover:text-slate-900"
-            >
-              <span aria-hidden="true">🚗</span> Automotive
-            </button>
-            <button
-              type="button"
-              data-filter="real-estate"
-              aria-pressed="false"
-              class="rounded-full px-4 py-2 text-slate-600 transition hover:text-slate-900"
-            >
-              <span aria-hidden="true">🏡</span> Real Estate
-            </button>
-          </div>
+        <!-- Inventory heading -->
+        <div id="inventory" class="flex items-end justify-between border-b border-slate-200 pb-4">
+          <h2 class="text-xl font-semibold tracking-tight text-slate-900">Current inventory</h2>
+          <span class="text-sm text-slate-500">
+            {vehicleCount} {vehicleCount === 1 ? 'vehicle' : 'vehicles'} available
+          </span>
         </div>
 
         <!-- Listings grid -->
-        <section class="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {
-            listings.map((listing) => (
-              <div class="listing-item" data-category={listing.category}>
+        {
+          vehicleCount > 0 ? (
+            <section class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {listings.map((listing) => (
                 <ListingCard listing={listing} />
+              ))}
+            </section>
+          ) : (
+            <div class="mt-8 rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
+              <div class="mx-auto mb-4 flex w-fit justify-center text-slate-300">
+                <Fragment set:html={iconSvg('car', 'h-10 w-10')} />
               </div>
-            ))
-          }
-        </section>
-
-        <!-- Empty state (shown by the filter script when nothing matches) -->
-        <div
-          id="empty-state"
-          class="hidden rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center"
-        >
-          <div class="mx-auto mb-4 flex w-fit justify-center text-slate-300">
-            <Fragment set:html={iconSvg('image', 'h-10 w-10')} />
-          </div>
-          <h2 class="text-lg font-semibold text-slate-900">No listings in this category yet</h2>
-          <p class="mt-1 text-sm text-slate-500">Try switching filters or check back soon.</p>
-        </div>
+              <h2 class="text-lg font-semibold text-slate-900">No vehicles in stock right now</h2>
+              <p class="mt-1 text-sm text-slate-500">
+                New arrivals land regularly — check back soon or get in touch.
+              </p>
+            </div>
+          )
+        }
       </main>
 
       <!-- Footer -->
       <footer class="mt-24 border-t border-slate-200 py-8 text-center text-sm text-slate-500">
-        Built with Astro, Tailwind and Sanity ·
-        <a href={REPO} target="_blank" rel="noopener noreferrer" class="underline transition hover:text-slate-900">
-          View on GitHub
-        </a>
+        © {year} Rebirth Listings Auto · All vehicles subject to availability.
       </footer>
     </div>
 
@@ -167,63 +134,12 @@ const canonicalURL = new URL(
     <!-- Floating AI chat assistant (Rebi) — self-contained global overlay -->
     <ChatWidget />
 
-    <style>
-      .listing-item {
-        transition:
-          opacity 0.3s ease,
-          transform 0.3s ease;
-      }
-      .listing-item.is-hidden {
-        opacity: 0;
-        transform: scale(0.97);
-      }
-    </style>
-
     <script>
-      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-filter]');
-      const items = document.querySelectorAll<HTMLElement>('.listing-item');
-      const empty = document.getElementById('empty-state');
-      let current = 'all';
-
-      function apply(filter: string) {
-        current = filter;
-
-        buttons.forEach((b) => {
-          const active = b.dataset.filter === filter;
-          // These Tailwind classes render statically on the initial buttons
-          // (active + inactive), so the scanner already emits them into the bundle.
-          b.classList.toggle('bg-slate-900', active);
-          b.classList.toggle('text-white', active);
-          b.classList.toggle('text-slate-600', !active);
-          // Only inactive buttons get the hover-darken; otherwise hovering the
-          // active (dark) tab would turn its white label slate-900 → invisible.
-          b.classList.toggle('hover:text-slate-900', !active);
-          b.setAttribute('aria-pressed', String(active));
-        });
-
-        items.forEach((item) => {
-          const match = filter === 'all' || item.dataset.category === filter;
-          if (match) {
-            item.style.display = '';
-            requestAnimationFrame(() => item.classList.remove('is-hidden'));
-          } else {
-            item.classList.add('is-hidden');
-            setTimeout(() => {
-              if (current !== 'all' && item.dataset.category !== current) {
-                item.style.display = 'none';
-              }
-            }, 300);
-          }
-        });
-
-        // Show the empty state when no listings match the active filter.
-        const visible = [...items].filter(
-          (i) => filter === 'all' || i.dataset.category === filter,
-        ).length;
-        empty?.classList.toggle('hidden', visible > 0);
-      }
-
-      buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.filter ?? 'all')));
+      // "Contact" in the nav opens the floating chat assistant.
+      document.getElementById('nav-contact')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('reb-launcher')?.click();
+      });
     </script>
   </body>
 </html>

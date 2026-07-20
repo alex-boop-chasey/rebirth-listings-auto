@@ -16,7 +16,7 @@ import {
   isLowerBetter,
 } from '../lib/listing';
 
-const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
+const year = new Date().getFullYear();
 
 // Parse ?ids=a,b,c — trim, drop blanks, dedupe, cap at 4.
 const idsParam = Astro.url.searchParams.get('ids') ?? '';
@@ -86,7 +86,7 @@ const heroFor = (l: Listing) =>
 
 const winCell = 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200';
 
-const title = 'Compare listings — astro-listings';
+const title = 'Compare vehicles — Rebirth Listings Auto';
 const description = 'Compare listings side by side.';
 ---
 
@@ -104,14 +104,14 @@ const description = 'Compare listings side by side.';
       <!-- Header -->
       <header class="flex items-center justify-between py-6">
         <a href="/" class="text-base font-semibold tracking-tight text-slate-900">
-          astro<span class="text-slate-400">-listings</span>
+          Rebirth Listings<span class="text-slate-400"> Auto</span>
         </a>
         <a
           href="/"
           class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
           <Fragment set:html={iconSvg('arrowLeft', 'h-3.5 w-3.5')} />
-          Back to listings
+          Back to inventory
         </a>
       </header>
 
@@ -252,10 +252,7 @@ const description = 'Compare listings side by side.';
 
       <!-- Footer -->
       <footer class="mt-24 border-t border-slate-200 py-8 text-center text-sm text-slate-500">
-        Built with Astro, Tailwind and Sanity ·
-        <a href={REPO} target="_blank" rel="noopener noreferrer" class="underline transition hover:text-slate-900">
-          View on GitHub
-        </a>
+        © {year} Rebirth Listings Auto · All vehicles subject to availability.
       </footer>
     </div>
 

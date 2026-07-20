@@ -1,7 +1,7 @@
 /**
- * Astro Motors — Business Knowledge Base (DEMO STUB)
+ * Rebirth Listings Auto — Business Knowledge Base (DEMO STUB)
  * ------------------------------------------------------------------
- * This is a placeholder knowledge base for the demo dealership "Astro Motors".
+ * This is a placeholder knowledge base for the demo dealership "Rebirth Listings Auto".
  * It exists only to prove the chatbot plumbing works end-to-end. Real content
  * will come from Sanity later (see the wider port plan).
  *
@@ -11,9 +11,9 @@
  */
 
 export const BUSINESS_KNOWLEDGE = `
-# ABOUT ASTRO MOTORS
+# ABOUT REBIRTH LISTINGS AUTO
 
-Astro Motors is a demo car dealership used to showcase this listings template.
+Rebirth Listings Auto is a demo car dealership used to showcase this listings template.
 We present ourselves as a friendly local dealership selling quality new and
 used vehicles, with everything a buyer needs under one roof.
 

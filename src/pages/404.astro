@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import ChatWidget from '../components/widgets/ChatWidget.astro';
 
-const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
+const year = new Date().getFullYear();
 ---
 
 <html lang="en">
@@ -10,7 +10,7 @@ const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Page not found · astro-listings</title>
+    <title>Page not found · Rebirth Listings Auto</title>
     <meta name="robots" content="noindex" />
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800 antialiased text-[15px] leading-relaxed">
@@ -25,24 +25,18 @@ const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
       <!-- Header -->
       <header class="flex items-center justify-between py-6">
         <a href="/" class="text-base font-semibold tracking-tight text-slate-900">
-          astro<span class="text-slate-400">-listings</span>
+          Rebirth Listings<span class="text-slate-400"> Auto</span>
         </a>
         <nav class="flex items-center gap-6 text-sm">
-          <a
-            href={REPO}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-slate-500 transition hover:text-slate-900"
-          >
-            GitHub
+          <a href="/#inventory" class="text-slate-500 transition hover:text-slate-900">
+            Inventory
           </a>
           <a
             href="#"
-            aria-disabled="true"
-            title="Coming soon"
-            class="text-slate-400 transition hover:text-slate-600"
+            id="nav-contact"
+            class="text-slate-500 transition hover:text-slate-900"
           >
-            npm
+            Contact
           </a>
         </nav>
       </header>
@@ -56,31 +50,36 @@ const REPO = 'https://github.com/alex-boop-chasey/astro-listings-demo';
             404
           </span>
           <h1 class="mt-6 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
-            This listing has moved on.
+            This one's left the lot.
           </h1>
           <p class="mx-auto mt-5 max-w-xl text-lg text-slate-600">
-            The page you're looking for isn't here — it may have been sold, removed, or never
-            existed.
+            The page you're looking for isn't here — the vehicle may have been sold, removed, or
+            never existed.
           </p>
           <a
-            href="/"
+            href="/#inventory"
             class="mt-8 inline-block rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            Browse all listings
+            Browse our inventory
           </a>
         </section>
       </main>
 
       <!-- Footer -->
       <footer class="mt-24 border-t border-slate-200 py-8 text-center text-sm text-slate-500">
-        Built with Astro, Tailwind and Sanity ·
-        <a href={REPO} target="_blank" rel="noopener noreferrer" class="underline transition hover:text-slate-900">
-          View on GitHub
-        </a>
+        © {year} Rebirth Listings Auto · All vehicles subject to availability.
       </footer>
     </div>
 
     <!-- Floating AI chat assistant (Rebi) — self-contained global overlay -->
     <ChatWidget />
+
+    <script>
+      // "Contact" in the nav opens the floating chat assistant.
+      document.getElementById('nav-contact')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('reb-launcher')?.click();
+      });
+    </script>
   </body>
 </html>

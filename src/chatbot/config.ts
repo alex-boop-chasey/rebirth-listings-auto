@@ -1,5 +1,5 @@
 /**
- * Astro Motors — Chatbot Config
+ * Rebirth Listings Auto — Chatbot Config
  * ------------------------------------------------------------------
  * Central knobs for the chatbot. Change the model, generation params, or
  * limits here. No dependencies — portable to a Cloudflare Worker/Pages Function.
@@ -22,8 +22,8 @@ export const MODEL = 'openai/gpt-oss-20b:free';
 export const FALLBACK_MODEL = 'nousresearch/hermes-3-llama-3.1-405b:free';
 
 // Sent to OpenRouter for ranking/analytics (optional but recommended).
-export const APP_URL = 'https://astro-listings-demo.example.com';
-export const APP_TITLE = 'Astro Motors';
+export const APP_URL = 'https://rebirth-listings-auto.pages.dev';
+export const APP_TITLE = 'Rebirth Listings Auto';
 
 // Generation parameters.
 export const TEMPERATURE = 0.5;

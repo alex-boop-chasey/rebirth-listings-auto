@@ -1,5 +1,5 @@
 /**
- * Astro Motors — Chatbot State Layer (Cloudflare D1)
+ * Rebirth Listings Auto — Chatbot State Layer (Cloudflare D1)
  * ==================================================================
  * The read/write layer for persistent conversation memory. Kept fully
  * isolated from `core.ts` so the storage backend is swappable later and so

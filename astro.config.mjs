@@ -15,8 +15,9 @@ const { PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET, PUBLIC_SANITY_API_VERSI
 
 // https://astro.build/config
 export default defineConfig({
-  // Placeholder public URL — swap for the real domain when the demo is deployed.
-  site: 'https://astro-listings-pro-demo.pages.dev',
+  // Placeholder public URL — swap for the real deployed domain (canonical URLs,
+  // sitemap and OG tags are built from this).
+  site: 'https://rebirth-listings-auto.pages.dev',
 
   integrations: [
     sanity({

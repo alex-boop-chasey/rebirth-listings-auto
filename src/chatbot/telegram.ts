@@ -1,5 +1,5 @@
 /**
- * Astro Motors — Telegram human-handoff bridge
+ * Rebirth Listings Auto — Telegram human-handoff bridge
  * ==================================================================
  * Sends escalation notifications to the team and parses their replies back out
  * of Telegram webhook payloads. Dependency-free and FAIL-OPEN: if the bot token
