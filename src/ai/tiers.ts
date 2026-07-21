@@ -23,12 +23,14 @@ export interface TierConfig {
  * has exactly one entry (exhaustiveness) and each entry is a valid `TierConfig`.
  */
 export const TIERS = {
-  // High-volume buyer-facing chat. Free models only — matches the current
-  // chatbot's primary→fallback pair (gpt-oss-20b → hermes-3).
+  // High-volume buyer-facing chat. Free models only. Primary → fallback:
+  // gpt-oss-20b → gemma-4-26b (hermes-3:free was discontinued on OpenRouter's
+  // free tier; gemma-4 is a different lab/architecture, so failures are
+  // uncorrelated with the primary).
   'chat-cheap': {
     models: [
       'openai/gpt-oss-20b:free',
-      'nousresearch/hermes-3-llama-3.1-405b:free',
+      'google/gemma-4-26b-a4b-it:free',
     ],
     defaultTemperature: 0.7,
     defaultMaxTokens: 1024,
