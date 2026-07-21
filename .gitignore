@@ -25,3 +25,6 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 .wrangler
+
+# Claude session history dumps — may contain secrets, never commit
+claude-ai-search-history*.md
