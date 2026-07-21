@@ -1,0 +1,286 @@
+{
+  "_comment": "DEMO-ONLY. Curated 40-vehicle import set from bundabergmotorgroup.com.au, selected in ticket \"populate 40 real vehicles\" to maximise spread across every filterable spec dimension. `condition` is the source section (new/used/demo-vehicles), used to populate vehicleSpecs.condition deterministically. `make`/`model` are the index-card values, used as a title fallback when a detail page (e.g. a POA pre-order) omits them from JSON-LD. `label` is human-readable for review only. Regenerate by re-running the selection; edit by hand to add/drop a vehicle by slug.",
+  "source": "https://bundabergmotorgroup.com.au",
+  "vehicles": [
+    {
+      "slug": "516791-1775105-hyundai-venue-2025",
+      "condition": "demo",
+      "make": "Hyundai",
+      "model": "Venue",
+      "label": "2025 Hyundai Venue"
+    },
+    {
+      "slug": "516071-1785316-ldv-terron9-2025",
+      "condition": "demo",
+      "make": "LDV",
+      "model": "Terron 9",
+      "label": "2025 LDV Terron 9"
+    },
+    {
+      "slug": "517243-1827758-nissan-navara-2025",
+      "condition": "demo",
+      "make": "Nissan",
+      "model": "Navara",
+      "label": "2025 Nissan Navara"
+    },
+    {
+      "slug": "516945-1772286-nissan-qashqai-2025",
+      "condition": "demo",
+      "make": "Nissan",
+      "model": "QASHQAI",
+      "label": "2025 Nissan QASHQAI"
+    },
+    {
+      "slug": "517507-1812505-hyundai-elexio-2026",
+      "condition": "demo",
+      "make": "Hyundai",
+      "model": "ELEXIO",
+      "label": "2026 Hyundai ELEXIO"
+    },
+    {
+      "slug": "517568-1839808-hyundai-i30-2026",
+      "condition": "demo",
+      "make": "Hyundai",
+      "model": "i30",
+      "label": "2026 Hyundai i30"
+    },
+    {
+      "slug": "517506-1849662-jaecoo-j5-2026",
+      "condition": "demo",
+      "make": "Jaecoo",
+      "model": "J5",
+      "label": "2026 Jaecoo J5"
+    },
+    {
+      "slug": "517377-1799042-nissan-xtrail-2026",
+      "condition": "demo",
+      "make": "Nissan",
+      "model": "X-Trail",
+      "label": "2026 Nissan X-Trail"
+    },
+    {
+      "slug": "517880-1859357-chery-tiggo7-2025",
+      "condition": "new",
+      "make": "Chery",
+      "model": "Tiggo 7",
+      "label": "2025 Chery Tiggo 7"
+    },
+    {
+      "slug": "516773-1772996-ldv-terron9-2025",
+      "condition": "new",
+      "make": "LDV",
+      "model": "Terron 9",
+      "label": "2025 LDV Terron 9"
+    },
+    {
+      "slug": "517645-1860082-chery-tiggo7-2026",
+      "condition": "new",
+      "make": "Chery",
+      "model": "Tiggo 7",
+      "label": "2026 Chery Tiggo 7"
+    },
+    {
+      "slug": "517265-1835604-chery-tiggo8-2026",
+      "condition": "new",
+      "make": "Chery",
+      "model": "Tiggo 8",
+      "label": "2026 Chery Tiggo 8"
+    },
+    {
+      "slug": "516944-1846797-hyundai-i20-2026",
+      "condition": "new",
+      "make": "Hyundai",
+      "model": "i20",
+      "label": "2026 Hyundai i20"
+    },
+    {
+      "slug": "517581-1874641-hyundai-i30-2026",
+      "condition": "new",
+      "make": "Hyundai",
+      "model": "i30",
+      "label": "2026 Hyundai i30"
+    },
+    {
+      "slug": "517148-1818668-hyundai-kona-2026",
+      "condition": "new",
+      "make": "Hyundai",
+      "model": "KONA",
+      "label": "2026 Hyundai KONA"
+    },
+    {
+      "slug": "516906-1825192-isuzu-dmax-2026",
+      "condition": "new",
+      "make": "Isuzu",
+      "model": "D-MAX",
+      "label": "2026 Isuzu D-MAX"
+    },
+    {
+      "slug": "516716-1818754-jaecoo-j7-2026",
+      "condition": "new",
+      "make": "Jaecoo",
+      "model": "J7",
+      "label": "2026 Jaecoo J7"
+    },
+    {
+      "slug": "518048-1873320-jaecoo-j7-2026",
+      "condition": "new",
+      "make": "Jaecoo",
+      "model": "J7",
+      "label": "2026 Jaecoo J7"
+    },
+    {
+      "slug": "517696-1872022-kia-carnival-2026",
+      "condition": "new",
+      "make": "Kia",
+      "model": "Carnival",
+      "label": "2026 Kia Carnival"
+    },
+    {
+      "slug": "517405-1843630-kia-carnival-2026",
+      "condition": "new",
+      "make": "Kia",
+      "model": "Carnival",
+      "label": "2026 Kia Carnival"
+    },
+    {
+      "slug": "517697-1869772-kia-picanto-2026",
+      "condition": "new",
+      "make": "Kia",
+      "model": "Picanto",
+      "label": "2026 Kia Picanto"
+    },
+    {
+      "slug": "517692-1833460-kia-picanto-2026",
+      "condition": "new",
+      "make": "Kia",
+      "model": "Picanto",
+      "label": "2026 Kia Picanto"
+    },
+    {
+      "slug": "517282-1833454-kia-sportage-2026",
+      "condition": "new",
+      "make": "Kia",
+      "model": "Sportage",
+      "label": "2026 Kia Sportage"
+    },
+    {
+      "slug": "517770-1853001-ldv-d90-2026",
+      "condition": "new",
+      "make": "LDV",
+      "model": "D90",
+      "label": "2026 LDV D90"
+    },
+    {
+      "slug": "517618-1869044-ldv-deliver9-2026",
+      "condition": "new",
+      "make": "LDV",
+      "model": "Deliver 9",
+      "label": "2026 LDV Deliver 9"
+    },
+    {
+      "slug": "517103-1853316-ram-1500-2026",
+      "condition": "new",
+      "make": "Ram",
+      "model": "1500",
+      "label": "2026 Ram 1500"
+    },
+    {
+      "slug": "517125-1823617-subaru-forester-2026",
+      "condition": "new",
+      "make": "Subaru",
+      "model": "Forester",
+      "label": "2026 Subaru Forester"
+    },
+    {
+      "slug": "710593-1856117-subaru-forester-2015",
+      "condition": "used",
+      "make": "Subaru",
+      "model": "Forester",
+      "label": "2015 Subaru Forester"
+    },
+    {
+      "slug": "710647-1863596-holden-commodore-2017",
+      "condition": "used",
+      "make": "Holden",
+      "model": "Commodore",
+      "label": "2017 Holden Commodore"
+    },
+    {
+      "slug": "710468-1839632-kia-cerato-2019",
+      "condition": "used",
+      "make": "Kia",
+      "model": "Cerato",
+      "label": "2019 Kia Cerato"
+    },
+    {
+      "slug": "710578-1855474-toyota-camry-2019",
+      "condition": "used",
+      "make": "Toyota",
+      "model": "Camry",
+      "label": "2019 Toyota Camry"
+    },
+    {
+      "slug": "710672-1863601-mazda-cx3-2020",
+      "condition": "used",
+      "make": "Mazda",
+      "model": "CX-3",
+      "label": "2020 Mazda CX-3"
+    },
+    {
+      "slug": "710272-1799602-kia-cerato-2021",
+      "condition": "used",
+      "make": "Kia",
+      "model": "Cerato",
+      "label": "2021 Kia Cerato"
+    },
+    {
+      "slug": "710685-1863604-gwm-tank300-2023",
+      "condition": "used",
+      "make": "GWM",
+      "model": "Tank 300",
+      "label": "2023 GWM Tank 300"
+    },
+    {
+      "slug": "710671-1866159-honda-hrv-2023",
+      "condition": "used",
+      "make": "Honda",
+      "model": "HR-V",
+      "label": "2023 Honda HR-V"
+    },
+    {
+      "slug": "710697-1867705-isuzu-dmax-2023",
+      "condition": "used",
+      "make": "Isuzu",
+      "model": "D-MAX",
+      "label": "2023 Isuzu D-MAX"
+    },
+    {
+      "slug": "710656-1868758-mazda-3-2023",
+      "condition": "used",
+      "make": "Mazda",
+      "model": "3",
+      "label": "2023 Mazda 3"
+    },
+    {
+      "slug": "710477-1837470-ford-everest-2024",
+      "condition": "used",
+      "make": "Ford",
+      "model": "Everest",
+      "label": "2024 Ford Everest"
+    },
+    {
+      "slug": "710528-1868845-nissan-xtrail-2024",
+      "condition": "used",
+      "make": "Nissan",
+      "model": "X-Trail",
+      "label": "2024 Nissan X-Trail"
+    },
+    {
+      "slug": "710753-1874638-mitsubishi-triton-2025",
+      "condition": "used",
+      "make": "Mitsubishi",
+      "model": "Triton",
+      "label": "2025 Mitsubishi Triton"
+    }
+  ]
+}

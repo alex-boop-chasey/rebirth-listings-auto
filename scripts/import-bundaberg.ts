@@ -3,17 +3,23 @@
  *
  * DEMO-ONLY TOOLING — not shipped in the publishable `astro-listings` package.
  *
- * Imports the first 6 vehicles from the client's existing dealer site into
- * Sanity, replacing the 3 seed automotive listings with real inventory. The
- * user has explicit authorization to reuse this content (it is the client's own
- * site, which this project replaces).
+ * Imports a curated set of real vehicles from the client's existing dealer site
+ * into Sanity, replacing the current automotive listings with real inventory.
+ * The user has explicit authorization to reuse this content (it is the client's
+ * own site, which this project replaces).
  *
- *   Source:  https://bundabergmotorgroup.com.au/new-vehicles/
- *   Imported: 2026-07-19
+ * The set to import is a committed manifest — `scripts/data/bundaberg-40.json` —
+ * that lists each vehicle by detail-page slug plus its source section
+ * (new/used/demo), chosen to spread widely across every filterable spec
+ * dimension. Edit that file (not this script) to change which vehicles import.
+ *
+ *   Source:  https://bundabergmotorgroup.com.au
  *
  * Each vehicle's detail page exposes a JSON-LD `Vehicle`/`Product` graph plus a
  * `<span class="val <Label> ">…</span>` spec table; we use JSON-LD as the
- * primary source and the spec table for the human-formatted fields.
+ * primary source and the spec table for the human-formatted fields. `condition`
+ * is taken from the manifest (the source section), not scraped, so it is
+ * deterministic.
  *
  * Usage:
  *   npm run import:bundaberg -- --dry-run   # fetch + print assembled docs, no writes
@@ -22,12 +28,13 @@
  * Requires a write-enabled SANITY_API_TOKEN in .env.
  */
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 import { createClient } from '@sanity/client';
 import { randomUUID } from 'node:crypto';
 import { AUTOMOTIVE_SPEC_LABELS } from '../src/sanity/templates/automotive';
 import { specsFromDetails } from './lib/vehicle-specs';
 
-const INDEX_URL = 'https://bundabergmotorgroup.com.au/new-vehicles/';
+const MANIFEST_URL = new URL('./data/bundaberg-40.json', import.meta.url);
 const ORIGIN = 'https://bundabergmotorgroup.com.au';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36';
@@ -120,8 +127,37 @@ async function fetchText(url: string): Promise<string> {
 
 // --- Source extraction -------------------------------------------------------
 
+type Condition = 'new' | 'used' | 'demo';
+
+interface ManifestEntry {
+  slug: string;
+  condition: Condition;
+  /** Index-card make/model, used as a title fallback when a detail page (e.g. a
+   *  POA pre-order) strips make/model from its JSON-LD and spec table. */
+  make?: string;
+  model?: string;
+  label?: string;
+}
+
+/** Read + validate the curated import manifest. */
+function loadManifest(): ManifestEntry[] {
+  const raw = JSON.parse(readFileSync(MANIFEST_URL, 'utf8'));
+  const vehicles = raw?.vehicles;
+  if (!Array.isArray(vehicles) || vehicles.length === 0) {
+    throw new Error(`Manifest ${MANIFEST_URL.pathname} has no vehicles[]`);
+  }
+  const valid: Condition[] = ['new', 'used', 'demo'];
+  for (const v of vehicles) {
+    if (!v?.slug || !valid.includes(v?.condition)) {
+      throw new Error(`Manifest entry invalid (needs slug + condition new|used|demo): ${JSON.stringify(v)}`);
+    }
+  }
+  return vehicles as ManifestEntry[];
+}
+
 interface SourceVehicle {
   url: string;
+  condition: Condition;
   make?: string;
   model?: string;
   badge?: string;
@@ -144,14 +180,6 @@ interface SourceVehicle {
   price: number;
   poa: boolean;
   imageUrls: string[];
-}
-
-/** Detail-page slugs from the index, in top-of-page (document) order. */
-function extractIndexSlugs(html: string, limit: number): string[] {
-  const re = /(\d{5,}-\d{5,}-[a-z0-9-]+?-\d{4})\//gi;
-  const seen: string[] = [];
-  for (const m of html.matchAll(re)) if (!seen.includes(m[1])) seen.push(m[1]);
-  return seen.slice(0, limit);
 }
 
 /** Parse the `<span class="val <Label> ">value</span>` spec table. */
@@ -201,7 +229,8 @@ function driveTypeFromSchema(url?: string): string | undefined {
   return map[key];
 }
 
-async function extractVehicle(url: string): Promise<SourceVehicle> {
+async function extractVehicle(url: string, entry: ManifestEntry): Promise<SourceVehicle> {
+  const { condition } = entry;
   const html = await fetchText(url);
   const spec = extractSpecTable(html);
   const { vehicle: v, product: p } = extractJsonLd(html);
@@ -224,8 +253,11 @@ async function extractVehicle(url: string): Promise<SourceVehicle> {
 
   return {
     url,
-    make: clean(v?.brand?.name),
-    model: clean(v?.model),
+    condition,
+    // Prefer on-page data; fall back to the manifest's index-card values for
+    // pages (e.g. POA pre-orders) that omit make/model from JSON-LD + spec table.
+    make: clean(v?.brand?.name) ?? clean(spec['Make']) ?? clean(entry.make),
+    model: clean(v?.model) ?? clean(spec['Model']) ?? clean(entry.model),
     badge: clean(spec['Badge']) ?? clean(v?.vehicleConfiguration),
     series: clean(spec['Series']),
     modelYear: firstInt(v?.vehicleModelDate) ?? firstInt(spec['MY'] ? `20${spec['MY']}` : undefined),
@@ -325,7 +357,7 @@ interface ImageRef {
   asset: { _type: 'reference'; _ref: string };
 }
 
-function buildListingDoc(s: SourceVehicle, images: ImageRef[]) {
+function buildListingDoc(s: SourceVehicle, images: ImageRef[], onWarn?: (m: string) => void) {
   const title = buildTitle(s);
   // Append the stock number so listings with identical titles (common for new
   // stock of the same variant) get unique, collision-free slugs.
@@ -347,7 +379,9 @@ function buildListingDoc(s: SourceVehicle, images: ImageRef[]) {
     images,
     details,
     // Typed spec fields derived from the same rows, via the shared mapper.
-    vehicleSpecs: specsFromDetails(details),
+    // `condition` is not in details[] (no such source label) — it comes from the
+    // manifest's source section and is set deterministically here.
+    vehicleSpecs: { ...specsFromDetails(details, { onWarn }), condition: s.condition },
     listingDate: new Date().toISOString(),
   };
 }
@@ -372,20 +406,46 @@ async function uploadImages(s: SourceVehicle, title: string): Promise<ImageRef[]
   return refs;
 }
 
+/** GET the first image to confirm it's fetchable (referer-gated host). */
+async function firstImageOk(s: SourceVehicle): Promise<boolean> {
+  if (!s.imageUrls.length) return false;
+  try {
+    const r = await fetch(s.imageUrls[0], { headers: { 'user-agent': UA, referer: s.url } });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Compact distribution of a vehicleSpecs field across all docs, for review. */
+function distribution(docs: any[], field: string): string {
+  const m: Record<string, number> = {};
+  for (const d of docs) {
+    const v = d.vehicleSpecs?.[field];
+    const k = v == null ? '(none)' : String(v);
+    m[k] = (m[k] ?? 0) + 1;
+  }
+  return Object.entries(m)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k}×${n}`)
+    .join(', ');
+}
+
 // --- Main --------------------------------------------------------------------
 
 async function main() {
-  console.log(`\nSource: ${INDEX_URL}`);
+  const manifest = loadManifest();
+  console.log(`\nSource: ${ORIGIN}  (manifest: ${manifest.length} vehicles)`);
   console.log(dryRun ? '*** DRY RUN — no writes ***\n' : '*** LIVE IMPORT ***\n');
 
-  const index = await fetchText(INDEX_URL);
-  const slugs = extractIndexSlugs(index, 6);
-  if (slugs.length < 6) throw new Error(`Expected 6 listings from index, found ${slugs.length}`);
+  // Warnings collected from the shared spec-mapper, tagged with their vehicle.
+  const warnings: string[] = [];
 
   const sources: SourceVehicle[] = [];
-  for (let i = 0; i < slugs.length; i++) {
-    const url = `${ORIGIN}/${slugs[i]}/`;
-    const s = await extractVehicle(url);
+  for (let i = 0; i < manifest.length; i++) {
+    const entry = manifest[i];
+    const url = `${ORIGIN}/${entry.slug}/`;
+    const s = await extractVehicle(url, entry);
     sources.push(s);
     if (i === 0) {
       // Print vehicle #1 in full first, so a bad extraction pattern is caught early.
@@ -397,8 +457,12 @@ async function main() {
     await sleep(IMAGE_DELAY_MS);
   }
 
-  // Assemble docs (dry-run: no image refs).
-  const assembled = sources.map((s) => ({ s, title: buildTitle(s), doc: buildListingDoc(s, []) }));
+  // Assemble docs (dry-run: no image refs). Capture per-vehicle mapper warnings.
+  const assembled = sources.map((s) => {
+    const title = buildTitle(s);
+    const doc = buildListingDoc(s, [], (m) => warnings.push(`${title}: ${m}`));
+    return { s, title, doc };
+  });
 
   // --- Report signals -------------------------------------------------------
   const emptyAcrossAll = AUTOMOTIVE_SPEC_LABELS.filter((spec) =>
@@ -414,19 +478,54 @@ async function main() {
       (d) => d.value != null || d.valueNumber != null || d.valueDate != null || d.valueBoolean != null,
     ).length;
     console.log(
-      `  • ${title}  [stock ${s.stockNumber ?? '—'}]  $${s.price.toLocaleString('en-AU')}${
+      `  • [${s.condition}] ${title}  [stock ${s.stockNumber ?? '—'}]  $${s.price.toLocaleString('en-AU')}${
         s.poa ? ' (POA!)' : ''
-      }  images:${s.imageUrls.length}  detailsFilled:${filled}/21`,
+      }  images:${s.imageUrls.length}  detailsFilled:${filled}/${AUTOMOTIVE_SPEC_LABELS.length}`,
     );
   }
 
+  const specFields = ['bodyType', 'fuelType', 'transmission', 'driveType', 'seatCount', 'condition'];
+
   if (dryRun) {
+    // Re-verify every vehicle's first image is fetchable, so image-less stock is
+    // caught before the write rather than rendering a fallback icon.
+    console.log('\nVerifying images…');
+    const imageless: string[] = [];
+    for (const { s, title } of assembled) {
+      if (!(await firstImageOk(s))) imageless.push(`${title} (${s.url})`);
+      await sleep(80);
+    }
+
     console.log('\n===== DRY RUN REPORT =====');
     console.log(`Listings assembled: ${assembled.length}`);
     console.log(`Total images (to upload): ${sources.reduce((n, s) => n + s.imageUrls.length, 0)}`);
-    console.log(`Rows empty across ALL 6: ${emptyAcrossAll.length ? emptyAcrossAll.join(', ') : '(none)'}`);
+    console.log(`Rows empty across ALL ${assembled.length}: ${emptyAcrossAll.length ? emptyAcrossAll.join(', ') : '(none)'}`);
     const poa = assembled.filter(({ s }) => s.poa).map(({ title }) => title);
-    console.log(`POA / price-missing: ${poa.length ? poa.join('; ') : '(none)'}`);
+    console.log(`POA / price-missing (${poa.length}): ${poa.length ? poa.join('; ') : '(none)'}`);
+
+    console.log('\n--- vehicleSpecs distribution (preview) ---');
+    for (const f of specFields) console.log(`  ${f}: ${distribution(assembled.map((a) => a.doc), f)}`);
+
+    console.log(`\n--- Mapper WARNs (${warnings.length}) ---`);
+    if (warnings.length) warnings.forEach((w) => console.log(`  WARN ${w}`));
+    else console.log('  (none)');
+
+    console.log(`\n--- Image check ---`);
+    console.log(
+      imageless.length
+        ? `  ⚠ ${imageless.length} vehicle(s) with NO fetchable first image — DROP these before commit:\n    ${imageless.join('\n    ')}`
+        : '  ✓ all vehicles have a fetchable first image',
+    );
+
+    // Show the exact deletion set the live run would perform, for review.
+    const importIds = assembled.map((a) => a.doc._id);
+    const toDelete: string[] = await client.fetch(
+      '*[_type == "listing" && category == "automotive" && !(_id in $ids)]._id',
+      { ids: importIds },
+    );
+    console.log(`\n--- REPLACE plan: would delete ${toDelete.length} existing automotive listing(s) by explicit _id ---`);
+    toDelete.forEach((id) => console.log(`  ✗ delete ${id}`));
+
     console.log('\nDry run complete — no documents or assets were written.');
     return;
   }
@@ -443,6 +542,7 @@ async function main() {
   }
 
   // 2. Which automotive docs to delete: existing autos that aren't one of ours.
+  //    Deletion is performed by explicit _id below (never a broad query-match).
   const importIds = docs.map((d) => d._id);
   const toDelete: string[] = await client.fetch(
     '*[_type == "listing" && category == "automotive" && !(_id in $ids)]._id',
@@ -456,12 +556,14 @@ async function main() {
   await tx.commit();
 
   console.log('\n===== IMPORT REPORT =====');
-  console.log(`Deleted automotive listings: ${toDelete.length}`);
+  console.log(`Deleted automotive listings (${toDelete.length}): ${toDelete.join(', ') || '(none)'}`);
   docs.forEach((d) => console.log(`  ✓ created ${d.title}  [stock ${d._id.replace('import-bundaberg-', '')}]`));
   console.log(`Total images uploaded: ${totalImages}`);
-  console.log(`Rows empty across ALL 6: ${emptyAcrossAll.length ? emptyAcrossAll.join(', ') : '(none)'}`);
-  const poa = assembled.filter(({ s }) => s.poa).map(({ title }) => title);
-  console.log(`POA / price-missing: ${poa.length ? poa.join('; ') : '(none)'}`);
+  console.log(`Rows empty across ALL ${assembled.length}: ${emptyAcrossAll.length ? emptyAcrossAll.join(', ') : '(none)'}`);
+  console.log('\n--- vehicleSpecs distribution ---');
+  for (const f of specFields) console.log(`  ${f}: ${distribution(docs, f)}`);
+  console.log(`\nMapper WARNs (${warnings.length}): ${warnings.length ? '' : '(none)'}`);
+  warnings.forEach((w) => console.log(`  WARN ${w}`));
 }
 
 main().catch((err) => {

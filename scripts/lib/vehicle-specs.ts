@@ -98,7 +98,11 @@ const ENUM_MAPS: Record<'bodyType' | 'transmission' | 'fuelType' | 'driveType' |
     { code: 'convertible', patterns: ['convertible', 'cabriolet', 'cabrio', 'roadster'] },
   ],
   transmission: [
-    { code: 'auto', patterns: ['auto', 'cvt', 'dsg', 'dct', 'tiptronic'] },
+    // 'reduction gear' is the single-speed transmission EVs report; an EV is
+    // operationally automatic (no manual gear selection), so it normalises to
+    // 'auto' — this keeps EVs in the transmission filter, which is what a buyer
+    // expects. It carries no manual signal, so the ambiguity guard is unaffected.
+    { code: 'auto', patterns: ['auto', 'cvt', 'dsg', 'dct', 'tiptronic', 'reduction gear'] },
     { code: 'manual', patterns: ['manual'] },
   ],
   fuelType: [
@@ -118,7 +122,10 @@ const ENUM_MAPS: Record<'bodyType' | 'transmission' | 'fuelType' | 'driveType' |
   driveType: [
     { code: 'awd', patterns: ['awd', 'all wheel', 'all-wheel'] },
     { code: '4wd', patterns: ['4wd', '4x4', '4 wd', 'four wheel'] },
-    { code: '2wd', patterns: ['2wd', '2 wd', 'rwd', 'fwd', 'rear wheel', 'front wheel', 'two wheel'] },
+    // '4x2' / '4 x 2' is Australian notation for a 2WD variant of a model also
+    // sold as 4x4 (common on utes). It is checked AFTER 4wd and matches no 4wd
+    // pattern, so specific-before-generic ordering keeps it deterministically 2wd.
+    { code: '2wd', patterns: ['2wd', '2 wd', '4x2', '4 x 2', 'rwd', 'fwd', 'rear wheel', 'front wheel', 'two wheel'] },
   ],
   condition: [
     { code: 'demo', patterns: ['demo', 'demonstrator'] },

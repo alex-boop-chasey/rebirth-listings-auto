@@ -1,0 +1,322 @@
+[
+ {
+  "url": "517568-1839808-hyundai-i30-2026",
+  "condition": "?",
+  "make": "Hyundai",
+  "model": "i30",
+  "year": 2026,
+  "price": 33990
+ },
+ {
+  "url": "710697-1867705-isuzu-dmax-2023",
+  "condition": "?",
+  "make": "Isuzu",
+  "model": "D-MAX",
+  "year": 2023,
+  "price": 55990
+ },
+ {
+  "url": "517507-1812505-hyundai-elexio-2026",
+  "condition": "demo",
+  "make": "Hyundai",
+  "model": "ELEXIO",
+  "year": 2026,
+  "price": 60740
+ },
+ {
+  "url": "516791-1775105-hyundai-venue-2025",
+  "condition": "demo",
+  "make": "Hyundai",
+  "model": "Venue",
+  "year": 2025,
+  "price": 31585
+ },
+ {
+  "url": "517506-1849662-jaecoo-j5-2026",
+  "condition": "demo",
+  "make": "Jaecoo",
+  "model": "J5",
+  "year": 2026,
+  "price": 37590
+ },
+ {
+  "url": "516071-1785316-ldv-terron9-2025",
+  "condition": "demo",
+  "make": "LDV",
+  "model": "Terron 9",
+  "year": 2025,
+  "price": 43888
+ },
+ {
+  "url": "517243-1827758-nissan-navara-2025",
+  "condition": "demo",
+  "make": "Nissan",
+  "model": "Navara",
+  "year": 2025,
+  "price": 59990
+ },
+ {
+  "url": "516945-1772286-nissan-qashqai-2025",
+  "condition": "demo",
+  "make": "Nissan",
+  "model": "QASHQAI",
+  "year": 2025,
+  "price": 50388
+ },
+ {
+  "url": "517377-1799042-nissan-xtrail-2026",
+  "condition": "demo",
+  "make": "Nissan",
+  "model": "X-Trail",
+  "year": 2026,
+  "price": 42990
+ },
+ {
+  "url": "517880-1859357-chery-tiggo7-2025",
+  "condition": "new",
+  "make": "Chery",
+  "model": "Tiggo 7",
+  "year": 2025,
+  "price": 29590
+ },
+ {
+  "url": "517645-1860082-chery-tiggo7-2026",
+  "condition": "new",
+  "make": "Chery",
+  "model": "Tiggo 7",
+  "year": 2026,
+  "price": 39590
+ },
+ {
+  "url": "517265-1835604-chery-tiggo8-2026",
+  "condition": "new",
+  "make": "Chery",
+  "model": "Tiggo 8",
+  "year": 2026,
+  "price": 43590
+ },
+ {
+  "url": "516944-1846797-hyundai-i20-2026",
+  "condition": "new",
+  "make": "Hyundai",
+  "model": "i20",
+  "year": 2026,
+  "price": 42490
+ },
+ {
+  "url": "517581-1874641-hyundai-i30-2026",
+  "condition": "new",
+  "make": "Hyundai",
+  "model": "i30",
+  "year": 2026,
+  "price": 39990
+ },
+ {
+  "url": "517148-1818668-hyundai-kona-2026",
+  "condition": "new",
+  "make": "Hyundai",
+  "model": "KONA",
+  "year": 2026,
+  "price": 49790
+ },
+ {
+  "url": "516906-1825192-isuzu-dmax-2026",
+  "condition": "new",
+  "make": "Isuzu",
+  "model": "D-MAX",
+  "year": 2026,
+  "price": 70685
+ },
+ {
+  "url": "516716-1818754-jaecoo-j7-2026",
+  "condition": "new",
+  "make": "Jaecoo",
+  "model": "J7",
+  "year": 2026,
+  "price": 34590
+ },
+ {
+  "url": "518048-1873320-jaecoo-j7-2026",
+  "condition": "new",
+  "make": "Jaecoo",
+  "model": "J7",
+  "year": 2026,
+  "price": 44590
+ },
+ {
+  "url": "517696-1872022-kia-carnival-2026",
+  "condition": "new",
+  "make": "Kia",
+  "model": "Carnival",
+  "year": 2026,
+  "price": 0
+ },
+ {
+  "url": "517405-1843630-kia-carnival-2026",
+  "condition": "new",
+  "make": "Kia",
+  "model": "Carnival",
+  "year": 2026,
+  "price": 71340
+ },
+ {
+  "url": "517697-1869772-kia-picanto-2026",
+  "condition": "new",
+  "make": "Kia",
+  "model": "Picanto",
+  "year": 2026,
+  "price": 0
+ },
+ {
+  "url": "517692-1833460-kia-picanto-2026",
+  "condition": "new",
+  "make": "Kia",
+  "model": "Picanto",
+  "year": 2026,
+  "price": 25190
+ },
+ {
+  "url": "517282-1833454-kia-sportage-2026",
+  "condition": "new",
+  "make": "Kia",
+  "model": "Sportage",
+  "year": 2026,
+  "price": 61990
+ },
+ {
+  "url": "517770-1853001-ldv-d90-2026",
+  "condition": "new",
+  "make": "LDV",
+  "model": "D90",
+  "year": 2026,
+  "price": 41490
+ },
+ {
+  "url": "517618-1869044-ldv-deliver9-2026",
+  "condition": "new",
+  "make": "LDV",
+  "model": "Deliver 9",
+  "year": 2026,
+  "price": 47990
+ },
+ {
+  "url": "516773-1772996-ldv-terron9-2025",
+  "condition": "new",
+  "make": "LDV",
+  "model": "Terron 9",
+  "year": 2025,
+  "price": 51990
+ },
+ {
+  "url": "517103-1853316-ram-1500-2026",
+  "condition": "new",
+  "make": "Ram",
+  "model": "1500",
+  "year": 2026,
+  "price": 169888
+ },
+ {
+  "url": "517125-1823617-subaru-forester-2026",
+  "condition": "new",
+  "make": "Subaru",
+  "model": "Forester",
+  "year": 2026,
+  "price": 55690
+ },
+ {
+  "url": "710477-1837470-ford-everest-2024",
+  "condition": "used",
+  "make": "Ford",
+  "model": "Everest",
+  "year": 2024,
+  "price": 58888
+ },
+ {
+  "url": "710685-1863604-gwm-tank300-2023",
+  "condition": "used",
+  "make": "GWM",
+  "model": "Tank 300",
+  "year": 2023,
+  "price": 42990
+ },
+ {
+  "url": "710647-1863596-holden-commodore-2017",
+  "condition": "used",
+  "make": "Holden",
+  "model": "Commodore",
+  "year": 2017,
+  "price": 44990
+ },
+ {
+  "url": "710671-1866159-honda-hrv-2023",
+  "condition": "used",
+  "make": "Honda",
+  "model": "HR-V",
+  "year": 2023,
+  "price": 33990
+ },
+ {
+  "url": "710468-1839632-kia-cerato-2019",
+  "condition": "used",
+  "make": "Kia",
+  "model": "Cerato",
+  "year": 2019,
+  "price": 23888
+ },
+ {
+  "url": "710272-1799602-kia-cerato-2021",
+  "condition": "used",
+  "make": "Kia",
+  "model": "Cerato",
+  "year": 2021,
+  "price": 27888
+ },
+ {
+  "url": "710656-1868758-mazda-3-2023",
+  "condition": "used",
+  "make": "Mazda",
+  "model": "3",
+  "year": 2023,
+  "price": 29990
+ },
+ {
+  "url": "710672-1863601-mazda-cx3-2020",
+  "condition": "used",
+  "make": "Mazda",
+  "model": "CX-3",
+  "year": 2020,
+  "price": 23990
+ },
+ {
+  "url": "710753-1874638-mitsubishi-triton-2025",
+  "condition": "used",
+  "make": "Mitsubishi",
+  "model": "Triton",
+  "year": 2025,
+  "price": 43990
+ },
+ {
+  "url": "710528-1868845-nissan-xtrail-2024",
+  "condition": "used",
+  "make": "Nissan",
+  "model": "X-Trail",
+  "year": 2024,
+  "price": 29990
+ },
+ {
+  "url": "710593-1856117-subaru-forester-2015",
+  "condition": "used",
+  "make": "Subaru",
+  "model": "Forester",
+  "year": 2015,
+  "price": 18990
+ },
+ {
+  "url": "710578-1855474-toyota-camry-2019",
+  "condition": "used",
+  "make": "Toyota",
+  "model": "Camry",
+  "year": 2019,
+  "price": 28990
+ }
+]
