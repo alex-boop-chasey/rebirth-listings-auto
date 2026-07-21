@@ -56,6 +56,10 @@ if (!projectId || !dataset || !token) {
 const client = createClient({ projectId, dataset, apiVersion, token, useCdn: false });
 
 const dryRun = process.argv.includes('--dry-run');
+// --add skips the clean-slate REPLACE: existing automotive listings are kept and
+// the manifest vehicles are created alongside them (they use fresh _ids, so
+// nothing existing is overwritten). Default (no flag) is REPLACE.
+const addOnly = process.argv.includes('--add');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // --- Helpers -----------------------------------------------------------------
@@ -519,12 +523,16 @@ async function main() {
 
     // Show the exact deletion set the live run would perform, for review.
     const importIds = assembled.map((a) => a.doc._id);
-    const toDelete: string[] = await client.fetch(
-      '*[_type == "listing" && category == "automotive" && !(_id in $ids)]._id',
-      { ids: importIds },
-    );
-    console.log(`\n--- REPLACE plan: would delete ${toDelete.length} existing automotive listing(s) by explicit _id ---`);
-    toDelete.forEach((id) => console.log(`  ✗ delete ${id}`));
+    if (addOnly) {
+      console.log('\n--- ADD mode: no existing listings will be deleted ---');
+    } else {
+      const toDelete: string[] = await client.fetch(
+        '*[_type == "listing" && category == "automotive" && !(_id in $ids)]._id',
+        { ids: importIds },
+      );
+      console.log(`\n--- REPLACE plan: would delete ${toDelete.length} existing automotive listing(s) by explicit _id ---`);
+      toDelete.forEach((id) => console.log(`  ✗ delete ${id}`));
+    }
 
     console.log('\nDry run complete — no documents or assets were written.');
     return;
@@ -543,19 +551,23 @@ async function main() {
 
   // 2. Which automotive docs to delete: existing autos that aren't one of ours.
   //    Deletion is performed by explicit _id below (never a broad query-match).
+  //    In --add mode we delete nothing.
   const importIds = docs.map((d) => d._id);
-  const toDelete: string[] = await client.fetch(
-    '*[_type == "listing" && category == "automotive" && !(_id in $ids)]._id',
-    { ids: importIds },
-  );
+  const toDelete: string[] = addOnly
+    ? []
+    : await client.fetch(
+        '*[_type == "listing" && category == "automotive" && !(_id in $ids)]._id',
+        { ids: importIds },
+      );
 
-  // 3. One transaction: deletes + createOrReplace → webhook fires once.
+  // 3. One transaction: deletes (if any) + createOrReplace → webhook fires once.
   const tx = client.transaction();
   toDelete.forEach((id) => tx.delete(id));
   docs.forEach((d) => tx.createOrReplace(d));
   await tx.commit();
 
   console.log('\n===== IMPORT REPORT =====');
+  console.log(`Mode: ${addOnly ? 'ADD (no deletions)' : 'REPLACE'}`);
   console.log(`Deleted automotive listings (${toDelete.length}): ${toDelete.join(', ') || '(none)'}`);
   docs.forEach((d) => console.log(`  ✓ created ${d.title}  [stock ${d._id.replace('import-bundaberg-', '')}]`));
   console.log(`Total images uploaded: ${totalImages}`);

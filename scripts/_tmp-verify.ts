@@ -1,0 +1,12 @@
+import 'dotenv/config';
+import { createClient } from '@sanity/client';
+const c = createClient({ projectId: process.env.PUBLIC_SANITY_PROJECT_ID!, dataset: process.env.PUBLIC_SANITY_DATASET!, apiVersion: process.env.PUBLIC_SANITY_API_VERSION ?? '2024-01-01', token: process.env.SANITY_TOKEN, useCdn: false });
+const total = await c.fetch('count(*[_type=="listing"])');
+const auto = await c.fetch('count(*[_type=="listing" && category=="automotive"])');
+const imported = await c.fetch('count(*[_type=="listing" && _id match "import-bundaberg-*"])');
+const noImg = await c.fetch('*[_type=="listing" && _id match "import-bundaberg-*" && count(images)==0]{_id}');
+const withImg = await c.fetch('count(*[_type=="listing" && _id match "import-bundaberg-*" && count(images)>0])');
+const dist = async (f:string) => { const rows = await c.fetch(`*[_type=="listing" && _id match "import-bundaberg-*"]{"v":vehicleSpecs.${f}}`); const m:Record<string,number>={}; for(const r of rows){const k=r.v==null?'(none)':String(r.v); m[k]=(m[k]||0)+1;} return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}×${v}`).join(', '); };
+console.log('TOTAL listings:', total, '| automotive:', auto, '| imported(import-bundaberg-*):', imported);
+console.log('imported with images:', withImg, '| imported WITHOUT images:', noImg.length, noImg.map((r:any)=>r._id));
+for (const f of ['condition','bodyType','fuelType','transmission','driveType','seatCount']) console.log(`  ${f}: ${await dist(f)}`);
