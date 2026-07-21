@@ -44,7 +44,19 @@ export interface OpenRouterCallOptions {
   referer?: string;
   /** Optional X-Title header (OpenRouter attribution). */
   appTitle?: string;
+  /** Provider-specific passthrough (see PROVIDER_OPTION_WHITELIST). */
+  providerOptions?: Record<string, unknown>;
 }
+
+/**
+ * The only `providerOptions` keys merged into the request body. It's a
+ * whitelist, not a blocklist, because a passthrough that could overwrite
+ * `model`/`messages`/`stream`/`temperature`/`max_tokens` would be a silent,
+ * horrible bug — better to forward only keys we've vetted. Add keys here as new
+ * provider-specific features are needed.
+ */
+// verified: `reasoning` passthrough is safe on google/gemma-4-26b-a4b-it:free as of 2026-07-21
+const PROVIDER_OPTION_WHITELIST = ['reasoning'] as const;
 
 // ---------------------------------------------------------------------------
 // Request construction / shared helpers
@@ -83,6 +95,13 @@ function buildBody(opts: OpenRouterCallOptions, stream: boolean): Record<string,
   const body: Record<string, unknown> = { model: opts.model, messages: opts.messages, stream };
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
   if (opts.maxTokens !== undefined) body.max_tokens = opts.maxTokens;
+  // Merge only whitelisted provider-specific keys, AFTER the standard fields so
+  // the whitelist itself is the only thing guarding them (see the const above).
+  if (opts.providerOptions) {
+    for (const key of PROVIDER_OPTION_WHITELIST) {
+      if (opts.providerOptions[key] !== undefined) body[key] = opts.providerOptions[key];
+    }
+  }
   return body;
 }
 
@@ -192,9 +211,17 @@ export async function openrouterComplete(opts: OpenRouterCallOptions): Promise<A
   const choices = parsed.choices;
   const first = Array.isArray(choices) ? choices[0] : undefined;
   const message = isRecord(first) ? first.message : undefined;
-  const content = isRecord(message) && typeof message.content === 'string' ? message.content : '';
-  if (!content) {
-    return fail('malformed', opts.model, false, 'OpenRouter response had no content', parsed);
+  if (!isRecord(message)) {
+    // No choices, or no message object: the response is structurally broken.
+    // Retrying the same call won't help → non-retryable.
+    return fail('malformed', opts.model, false, 'OpenRouter response had no message', parsed);
+  }
+  const content = typeof message.content === 'string' ? message.content : '';
+  if (content.trim() === '') {
+    // A well-formed response that simply carried no text (e.g. a reasoning model
+    // that spent its whole token budget "thinking"). Another model may reply, so
+    // this is retryable — the client falls through to the next model in the tier.
+    return fail('empty-response', opts.model, true, 'OpenRouter response had empty content', parsed);
   }
 
   const modelUsed = typeof parsed.model === 'string' && parsed.model ? parsed.model : opts.model;
@@ -242,6 +269,7 @@ async function* streamChunks(opts: OpenRouterCallOptions): AsyncGenerator<AIStre
   let modelUsed = opts.model;
   let tokensUsed: TokenUsage | undefined;
   let sawTerminal = false; // saw [DONE] or a finish_reason
+  let emittedContent = false; // adapter-local: did any content delta reach the consumer?
 
   try {
     for (;;) {
@@ -265,8 +293,17 @@ async function* streamChunks(opts: OpenRouterCallOptions): AsyncGenerator<AIStre
         if (outcome.model) modelUsed = outcome.model;
         if (outcome.usage) tokensUsed = outcome.usage;
         if (outcome.terminal) sawTerminal = true;
-        if (outcome.delta) yield { delta: outcome.delta, done: false };
+        if (outcome.delta) {
+          emittedContent = true;
+          yield { delta: outcome.delta, done: false };
+        }
         if (outcome.isDone) {
+          // Clean [DONE] with no content at all → retryable empty-response, so the
+          // client falls through to the next model (parity with the old "empty
+          // completion → try fallback" behaviour).
+          if (!emittedContent) {
+            fail('empty-response', opts.model, true, 'OpenRouter stream completed with no content', null);
+          }
           yield terminalChunk(modelUsed, tokensUsed);
           return;
         }
@@ -284,6 +321,10 @@ async function* streamChunks(opts: OpenRouterCallOptions): AsyncGenerator<AIStre
   // Reached the end of the body. A finish_reason (without a trailing [DONE])
   // still counts as a clean completion; anything else is a dropped connection.
   if (sawTerminal) {
+    // finish_reason but zero content → same retryable empty-response as [DONE].
+    if (!emittedContent) {
+      return fail('empty-response', opts.model, true, 'OpenRouter stream completed with no content', null);
+    }
     yield terminalChunk(modelUsed, tokensUsed);
     return;
   }

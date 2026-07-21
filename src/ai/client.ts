@@ -6,19 +6,26 @@
  * three resolve the request's `capability` to a model list via `./tiers.ts` and
  * apply the layer's fallback semantics documented per-function below.
  *
- * `generate()` and `generateObject()` are implemented (Phases 3–4).
- * `generateStream()` remains a scaffold until Phase 5.
+ * `generate()`, `generateObject()`, and `generateStream()` are implemented
+ * (Phases 3–5).
  */
 
 import { z } from 'zod';
 import type { AIMessage, AIRequest, AIResponse, AIStreamChunk } from './types';
-import { AllModelsExhaustedError, ProviderError, StructuredParseError } from './types';
+import {
+  AllModelsExhaustedError,
+  ProviderError,
+  StreamInterruptedError,
+  StructuredParseError,
+} from './types';
 import { TIERS, type TierConfig } from './tiers';
 import { getAIConfig, type ResolvedAIConfig } from './config';
-import { openrouterComplete, type OpenRouterCallOptions } from './providers/openrouter';
+import {
+  openrouterComplete,
+  openrouterStream,
+  type OpenRouterCallOptions,
+} from './providers/openrouter';
 import { buildRepairMessages, buildResponse, buildStructuredMessages, parseStructured } from './structured';
-
-const NOT_IMPLEMENTED = 'not implemented in phase 1';
 
 /** One entry in a fallback attempt log. */
 type Attempt = { model: string; error: string };
@@ -49,7 +56,8 @@ async function attemptCompletion(
   model: string,
   messages: AIMessage[],
   temperature: number | undefined,
-  maxTokens: number | undefined
+  maxTokens: number | undefined,
+  providerOptions: Record<string, unknown> | undefined
 ): Promise<AttemptResult> {
   // Manual controller (not AbortSignal.timeout) so we hold the reference and can
   // later tell "our timeout fired" from "the caller cancelled".
@@ -65,6 +73,7 @@ async function attemptCompletion(
     if (maxTokens !== undefined) opts.maxTokens = maxTokens;
     if (config.referer !== undefined) opts.referer = config.referer;
     if (config.appTitle !== undefined) opts.appTitle = config.appTitle;
+    if (providerOptions !== undefined) opts.providerOptions = providerOptions;
 
     return { outcome: 'ok', response: await openrouterComplete(opts) };
   } catch (err) {
@@ -136,7 +145,7 @@ export async function generate(req: AIRequest): Promise<AIResponse<string>> {
 
   const attempts: Attempt[] = [];
   for (const model of tier.models) {
-    const result = await attemptCompletion(config, req.signal, model, req.messages, temperature, maxTokens);
+    const result = await attemptCompletion(config, req.signal, model, req.messages, temperature, maxTokens, req.providerOptions);
     if (result.outcome === 'ok') return result.response;
     if (recordFailure(result, model, config.attemptTimeoutMs, attempts) === 'stop') break;
   }
@@ -170,7 +179,7 @@ export async function generateObject<T>(
 
   for (const model of tier.models) {
     // --- Initial attempt ---
-    const first = await attemptCompletion(config, req.signal, model, baseMessages, temperature, maxTokens);
+    const first = await attemptCompletion(config, req.signal, model, baseMessages, temperature, maxTokens, req.providerOptions);
     if (first.outcome !== 'ok') {
       if (recordFailure(first, model, config.attemptTimeoutMs, attempts) === 'stop') break;
       continue;
@@ -185,7 +194,7 @@ export async function generateObject<T>(
       parsedFirst.failure,
       parsedFirst.summary
     );
-    const second = await attemptCompletion(config, req.signal, model, repairMessages, temperature, maxTokens);
+    const second = await attemptCompletion(config, req.signal, model, repairMessages, temperature, maxTokens, req.providerOptions);
     if (second.outcome !== 'ok') {
       if (recordFailure(second, model, config.attemptTimeoutMs, attempts) === 'stop') break;
       continue;
@@ -208,25 +217,139 @@ export async function generateObject<T>(
 }
 
 /**
- * Stream a plain-text completion chunk-by-chunk.
+ * Stream a plain-text completion chunk-by-chunk, walking the capability's model
+ * list under the **pre-first-token restart rule**:
  *
- * Fallback semantics differ from the non-streaming path because tokens are
- * handed to the caller as they arrive and cannot be un-sent:
+ * - Fail BEFORE any content delta reaches the consumer → transparently restart
+ *   on the next model (the consumer only sees a longer time-to-first-token).
+ * - Fail AFTER ≥1 delta has been yielded → abort with `StreamInterruptedError`
+ *   carrying the partial content and the streaming model. Never mid-stream
+ *   restart on a fresh model.
  *
- * - If a model fails **before emitting its first token**, the layer silently
- *   restarts the stream on the next model in the tier — the caller sees an
- *   uninterrupted stream and never learns a restart happened.
- * - If a model fails **after at least one token has been emitted**, the layer
- *   does NOT restart (that would duplicate/replay text). It throws
- *   `StreamInterruptedError` carrying the `partialContent` emitted so far and
- *   the `modelUsed`, so the caller can decide how to recover.
- * - If every model fails before emitting a token, throws
- *   `AllModelsExhaustedError`.
+ * Why not mid-stream restart: model B has no idea what model A already said, so
+ * resuming on it produces visible repetition, contradiction, or topic drift.
+ * Pre-first-token restart is invisible; the rule gives us that without pretending
+ * the hard case is solvable.
  *
- * The final chunk (`done: true`) carries `modelUsed` and, when the provider
- * reports it, `tokensUsed`.
+ * The per-attempt `streamAttemptTimeoutMs` is a time-to-FIRST-token budget only —
+ * it is cleared the moment the first delta arrives, so a healthy long response is
+ * never cut off mid-stream. The provider's terminal chunk (`done: true`) is
+ * passed through verbatim; its `modelUsed` is authoritative (OpenRouter may
+ * reroute), so we never synthesise our own.
  */
 export function generateStream(req: AIRequest): AsyncIterable<AIStreamChunk> {
-  void req;
-  throw new Error(NOT_IMPLEMENTED);
+  return streamGenerator(req);
+}
+
+async function* streamGenerator(req: AIRequest): AsyncGenerator<AIStreamChunk> {
+  const tier = resolveTier(req);
+  const config = getAIConfig();
+  const temperature = req.temperature ?? tier.defaultTemperature;
+  const maxTokens = req.maxTokens ?? tier.defaultMaxTokens;
+
+  const attempts: Attempt[] = [];
+  let hasEmitted = false; // latches true on the first delta and STAYS true across models
+  let partialContent = ''; // content yielded so far (only ever from the emitting model)
+
+  for (const model of tier.models) {
+    // Manual controller (not AbortSignal.timeout) so we hold the reference and
+    // can tell "our timeout fired" from "the caller cancelled".
+    const timeoutController = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined = setTimeout(
+      () => timeoutController.abort(),
+      config.streamAttemptTimeoutMs
+    );
+    // Idempotent: clears the TTFT timeout once, on first token or in `finally`.
+    const clearAttemptTimeout = () => {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    };
+
+    try {
+      const signal = req.signal
+        ? AbortSignal.any([req.signal, timeoutController.signal])
+        : timeoutController.signal;
+
+      const opts: OpenRouterCallOptions = { model, messages: req.messages, apiKey: config.openrouterApiKey, signal };
+      if (temperature !== undefined) opts.temperature = temperature;
+      if (maxTokens !== undefined) opts.maxTokens = maxTokens;
+      if (config.referer !== undefined) opts.referer = config.referer;
+      if (config.appTitle !== undefined) opts.appTitle = config.appTitle;
+      if (req.providerOptions !== undefined) opts.providerOptions = req.providerOptions;
+
+      for await (const chunk of openrouterStream(opts)) {
+        if (chunk.done) {
+          yield chunk; // terminal chunk — authoritative, passed through verbatim
+          return;
+        }
+        // Content delta: the first token of this attempt cancels the TTFT budget.
+        clearAttemptTimeout();
+        hasEmitted = true;
+        partialContent += chunk.delta;
+        yield chunk;
+      }
+
+      // Provider generators always yield a terminal chunk or throw; a clean end
+      // without one is anomalous. Defensive:
+      if (hasEmitted) {
+        throw new StreamInterruptedError(partialContent, model, {
+          cause: new Error('Provider stream ended without a terminal chunk'),
+        });
+      }
+      attempts.push({ model, error: 'Stream ended without a terminal chunk' });
+    } catch (err) {
+      // A StreamInterruptedError raised in the try body (defensive paths) is
+      // already the right shape — don't re-wrap it.
+      if (err instanceof StreamInterruptedError) throw err;
+
+      if (err instanceof ProviderError) {
+        if (hasEmitted) {
+          // Post-first-token: committed to this model, cannot restart.
+          throw new StreamInterruptedError(partialContent, model, { cause: err });
+        }
+        // Pre-first-token: record, then restart (retryable) or stop (not).
+        attempts.push({ model, error: err.message });
+        if (!err.retryable) break;
+        continue;
+      }
+
+      if (isAbortError(err)) {
+        if (!timeoutController.signal.aborted) {
+          throw err; // caller cancelled — intent, regardless of hasEmitted
+        }
+        // Our TTFT timeout fired.
+        if (hasEmitted) {
+          // Unreachable once the timeout is cleared on first token; treat
+          // defensively as a post-first-token failure.
+          throw new StreamInterruptedError(partialContent, model, { cause: err }); // defensive
+        }
+        attempts.push({ model, error: `Timed out before first token after ${config.streamAttemptTimeoutMs}ms` });
+        continue;
+      }
+
+      // Unexpected non-provider error.
+      if (hasEmitted) {
+        throw new StreamInterruptedError(partialContent, model, { cause: err });
+      }
+      const wrapped = new ProviderError(
+        'unknown',
+        model,
+        false,
+        err instanceof Error ? err.message : String(err),
+        { cause: err }
+      );
+      attempts.push({ model, error: wrapped.message });
+      break;
+    } finally {
+      // Runs on success return, thrown errors, AND consumer `.return()` (early
+      // break out of a `for await`) — so the timer never leaks.
+      clearAttemptTimeout();
+    }
+  }
+
+  // Walk ended without a successful terminal chunk. We can only reach here with
+  // hasEmitted === false — any post-emit failure above threw directly.
+  throw new AllModelsExhaustedError(req.capability, attempts);
 }

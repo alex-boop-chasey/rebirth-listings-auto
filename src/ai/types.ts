@@ -37,6 +37,14 @@ export interface AIRequest {
   maxTokens?: number;
   /** Caller-supplied abort signal; aborting cancels the in-flight provider call. */
   signal?: AbortSignal;
+  /**
+   * Provider-specific options passed through the layer to the underlying
+   * adapter. This is an escape hatch for model/provider-specific config that
+   * doesn't belong in the abstraction (e.g. OpenRouter's `reasoning` field). The
+   * adapter decides which keys it understands; unknown keys are forwarded to the
+   * provider (OpenRouter ignores unknown params, per its docs).
+   */
+  providerOptions?: Record<string, unknown>;
 }
 
 /** Why a generation stopped. `error` is used when the layer surfaces a failed completion as data. */
@@ -149,6 +157,8 @@ export type ProviderErrorKind =
   | 'model-unavailable'
   | 'network'
   | 'malformed'
+  /** Well-formed response that carried no text — retryable (another model may reply). */
+  | 'empty-response'
   | 'unknown';
 
 /**

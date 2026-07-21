@@ -21,13 +21,22 @@ export interface AIConfig {
   appTitle?: string;
   /** Per-attempt timeout in ms before we give up on a model and try the next. Default 30_000. */
   attemptTimeoutMs?: number;
+  /**
+   * Per-attempt timeout in ms for streaming calls. Streaming users are
+   * latency-sensitive, so this defaults to a shorter window than
+   * `attemptTimeoutMs`. It is a time-to-first-token budget only. Default 10_000.
+   */
+  streamAttemptTimeoutMs?: number;
 }
 
 /** Config with the fields the client always needs resolved to concrete values. */
-export type ResolvedAIConfig = Required<Pick<AIConfig, 'openrouterApiKey' | 'attemptTimeoutMs'>> &
+export type ResolvedAIConfig = Required<
+  Pick<AIConfig, 'openrouterApiKey' | 'attemptTimeoutMs' | 'streamAttemptTimeoutMs'>
+> &
   AIConfig;
 
 const DEFAULT_ATTEMPT_TIMEOUT_MS = 30_000;
+const DEFAULT_STREAM_ATTEMPT_TIMEOUT_MS = 10_000;
 
 let current: AIConfig | null = null;
 
@@ -54,6 +63,7 @@ export function getAIConfig(): ResolvedAIConfig {
     ...current,
     openrouterApiKey: current.openrouterApiKey,
     attemptTimeoutMs: current.attemptTimeoutMs ?? DEFAULT_ATTEMPT_TIMEOUT_MS,
+    streamAttemptTimeoutMs: current.streamAttemptTimeoutMs ?? DEFAULT_STREAM_ATTEMPT_TIMEOUT_MS,
   };
 }
 
