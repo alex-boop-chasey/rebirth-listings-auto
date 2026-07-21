@@ -1,4 +1,5 @@
 import { urlFor } from '../sanity/lib/image';
+import { dealerConfig } from '../config/dealer';
 
 // --- Types -------------------------------------------------------------------
 
@@ -54,9 +55,12 @@ export const LISTING_FIELDS = `_id, title, slug, description, price, currency, s
 export function formatPrice(price: number, currency: string): string {
   // No/zero price = "price on application" — show a human label instead of "$0".
   if (!price || price <= 0) return 'Contact agent';
-  return new Intl.NumberFormat('en-AU', {
+  // Locale and default currency are dealer/region-specific — resolved from the
+  // central dealer config (DECISION.md Decision 1), not hardcoded. A per-listing
+  // currency still wins when present.
+  return new Intl.NumberFormat(dealerConfig.locale.locale, {
     style: 'currency',
-    currency: currency || 'AUD',
+    currency: currency || dealerConfig.locale.currency,
     maximumFractionDigits: 0,
   }).format(price);
 }
@@ -126,6 +130,7 @@ export const icons: Record<string, string> = {
     '<rect x="3" y="2.5" width="10" height="11" rx="1"/><path d="M5.5 5h1.5M9 5h1.5M5.5 7.5h1.5M9 7.5h1.5M5.5 10h1.5M9 10h1.5"/><path d="M6.8 13.5v-1.5h2.4v1.5"/>',
   check: '<path d="M3 8.2l3 3 7-7"/>',
   cross: '<path d="M4 4l8 8M12 4l-8 8"/>',
+  filter: '<path d="M2.5 3.5h11L9 8.4v4.1l-2 1V8.4z"/>',
   arrow: '<path d="M3 8h9"/><path d="M8.5 4.5L12 8l-3.5 3.5"/>',
   arrowLeft: '<path d="M13 8H4"/><path d="M7.5 4.5L4 8l3.5 3.5"/>',
   heart:
