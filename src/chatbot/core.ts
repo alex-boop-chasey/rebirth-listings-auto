@@ -16,23 +16,18 @@
 
 import { buildSystemPrompt } from './system-prompt';
 import {
-  OPENROUTER_URL,
-  MODEL,
-  FALLBACK_MODEL,
-  APP_URL,
-  APP_TITLE,
   TEMPERATURE,
   MAX_TOKENS,
   REASONING_EFFORT,
   MAX_MESSAGE_CHARS,
   MAX_HISTORY_MESSAGES,
-  REQUEST_TIMEOUT_MS,
   RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_SECONDS,
   ESCALATION_RATE_MAX,
   SESSION_STALE_SECONDS,
   TURNSTILE_ENABLED,
 } from './config';
+import { generate, generateStream, type AIMessage } from '../ai';
 import {
   type D1Like,
   createSession,
@@ -196,77 +191,29 @@ interface ModelResult {
 }
 
 /**
- * A single OpenRouter attempt with its OWN AbortController + timeout, so the
- * failsafe's second attempt never inherits an already-aborted signal from the
- * first. Returns `{ ok: false }` on non-2xx, timeout, or an empty completion —
- * the caller decides whether to retry against the fallback model.
+ * Generate a reply via the AI provider layer. `chat-cheap` maps to the same two
+ * free models in the same order (gpt-oss-20b → hermes-3); the layer owns the
+ * fallback, timeout, and OpenRouter wire details. `reasoning` is passed through
+ * `providerOptions` (whitelisted by the adapter). Returns the same `ModelResult`
+ * shape the old code did, so `handleChatRequest` is unchanged.
  */
-async function callModel(
-  model: string,
-  messages: Array<{ role: string; content: string }>,
-  apiKey: string,
-  isPrimary: boolean
-): Promise<ModelResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+async function generateReply(messages: AIMessage[]): Promise<ModelResult> {
   try {
-    const payload: Record<string, unknown> = {
-      model,
+    const res = await generate({
+      capability: 'chat-cheap',
       messages,
       temperature: TEMPERATURE,
-      max_tokens: MAX_TOKENS,
-    };
-    // Only the primary (gpt-oss-20b) is a reasoning model; sending `reasoning`
-    // to a non-reasoning fallback can error on some providers.
-    if (isPrimary) payload.reasoning = { effort: REASONING_EFFORT };
-
-    const upstream = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': APP_URL,
-        'X-Title': APP_TITLE,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+      maxTokens: MAX_TOKENS,
+      providerOptions: { reasoning: { effort: REASONING_EFFORT } },
     });
-
-    if (!upstream.ok) {
-      const detail = await upstream.text().catch(() => '');
-      console.error('[chatbot] OpenRouter error', model, upstream.status, detail.slice(0, 300));
-      return { ok: false };
-    }
-
-    const data = (await upstream.json()) as {
-      choices?: Array<{ message?: { content?: string; reasoning?: string } }>;
-    };
-    const message = data.choices?.[0]?.message;
-    // Prefer the answer; fall back to reasoning text only if content is empty.
-    const reply = (message?.content?.trim() || message?.reasoning?.trim()) ?? '';
-    if (!reply) {
-      console.error('[chatbot] Empty completion', model, JSON.stringify(data).slice(0, 300));
-      return { ok: false };
-    }
-    return { ok: true, reply, model };
+    return { ok: true, reply: res.content, model: res.modelUsed };
   } catch (err) {
-    const aborted = (err as Error).name === 'AbortError';
-    console.error('[chatbot] Model call failed', model, aborted ? 'timeout' : err);
+    // Any failure — including AllModelsExhaustedError when both models fail —
+    // collapses to { ok: false }, and the caller renders BOTH_FAILED_REPLY,
+    // exactly as the old callModel/generateReply contract did.
+    console.error('[chatbot] AI generate failed', err);
     return { ok: false };
-  } finally {
-    clearTimeout(timeout);
   }
-}
-
-/** Try the primary model, then the fallback once. Records which one replied. */
-async function generateReply(
-  messages: Array<{ role: string; content: string }>,
-  apiKey: string
-): Promise<ModelResult> {
-  const primary = await callModel(MODEL, messages, apiKey, true);
-  if (primary.ok) return primary;
-  console.log('[chatbot] Primary model failed — trying fallback', FALLBACK_MODEL);
-  return callModel(FALLBACK_MODEL, messages, apiKey, false);
 }
 
 /**
@@ -348,8 +295,7 @@ function sseEvent(obj: unknown): string {
 }
 
 interface StreamOpts {
-  apiKey: string;
-  messages: Array<{ role: string; content: string }>;
+  messages: AIMessage[];
   env: ChatEnv;
   db?: D1Like;
   sessionId?: string;
@@ -358,24 +304,26 @@ interface StreamOpts {
 }
 
 /**
- * Streaming (SSE) path for the PRIMARY model. Streams the reply token-by-token,
- * but holds back a lead window so it can detect a leading [[ESCALATE]] marker
- * BEFORE any text reaches the visitor — escalation must never flash suppressed
- * text. On a primary-model failure or empty content it emits `{type:'error'}`;
- * the widget then retries with `stream:false`, which runs the full failsafe
- * (primary → fallback) over JSON. Events: `delta` | `done` | `escalate` | `error`.
+ * Streaming (SSE) path. Streams the reply token-by-token via the AI layer's
+ * `generateStream` (chat-cheap tier, with pre-first-token fallback across the two
+ * models), holding back a lead window so it can detect a leading [[ESCALATE]]
+ * marker BEFORE any text reaches the visitor — escalation must never flash
+ * suppressed text. Any streaming failure emits `{type:'error'}`; the widget then
+ * retries with `stream:false`, which runs the non-streaming failsafe over JSON.
+ * Events: `delta` | `done` | `escalate` | `error`.
  */
 function streamChatResponse(opts: StreamOpts): Response {
-  const { apiKey, messages, env, db, sessionId, ip, visitorText } = opts;
+  const { messages, env, db, sessionId, ip, visitorText } = opts;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(encoder.encode(sseEvent(o)));
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
 
       let resolved = false; // did Rebi signal the enquiry looks resolved?
+      // The model that actually served this stream (primary or fallback),
+      // captured from the terminal chunk for the model_used column.
+      let modelUsed: string | undefined;
 
       // Finish the normal (non-escalation) way: persist + emit `done`.
       const finishNormal = async (text: string, alreadyStreamed: boolean) => {
@@ -386,40 +334,11 @@ function streamChatResponse(opts: StreamOpts): Response {
           return;
         }
         if (!alreadyStreamed) send({ type: 'delta', text: clean });
-        const lastId = db && sessionId ? await persistExchange(db, sessionId, visitorText, clean, MODEL) : undefined;
+        const lastId = db && sessionId ? await persistExchange(db, sessionId, visitorText, clean, modelUsed) : undefined;
         send({ type: 'done', sessionId, status: 'ai_active', lastId, resolved });
       };
 
       try {
-        const upstream = await fetch(OPENROUTER_URL, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': APP_URL,
-            'X-Title': APP_TITLE,
-          },
-          body: JSON.stringify({
-            model: MODEL,
-            messages,
-            temperature: TEMPERATURE,
-            max_tokens: MAX_TOKENS,
-            reasoning: { effort: REASONING_EFFORT },
-            stream: true,
-          }),
-          signal: ctrl.signal,
-        });
-
-        if (!upstream.ok || !upstream.body) {
-          const detail = upstream.ok ? '' : await upstream.text().catch(() => '');
-          console.error('[chatbot] Streaming primary failed', upstream.status, detail.slice(0, 200));
-          send({ type: 'error' });
-          return;
-        }
-
-        const reader = upstream.body.getReader();
-        const decoder = new TextDecoder();
-        let sseBuf = '';
         let content = '';
         let decided = false; // have we ruled the marker in/out?
         let streaming = false; // are we forwarding deltas live?
@@ -442,29 +361,28 @@ function streamChatResponse(opts: StreamOpts): Response {
           }
         };
 
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          sseBuf += decoder.decode(value, { stream: true });
-          const lines = sseBuf.split('\n');
-          sseBuf = lines.pop() ?? '';
-          for (const line of lines) {
-            const t = line.trim();
-            if (!t.startsWith('data:')) continue;
-            const data = t.slice(5).trim();
-            if (!data || data === '[DONE]') continue;
-            try {
-              const j = JSON.parse(data) as { choices?: Array<{ delta?: { content?: string } }> };
-              const piece = j.choices?.[0]?.delta?.content;
-              if (typeof piece === 'string' && piece) {
-                content += piece;
-                if (!decided) decide(false);
-                else if (streaming) send({ type: 'delta', text: piece });
-                // decided && escalating → keep buffering silently
-              }
-            } catch {
-              /* ignore keep-alive / partial JSON */
-            }
+        // Stream via the AI layer. It owns the OpenRouter wire format, the
+        // per-attempt timeout, and pre-first-token fallback across chat-cheap's
+        // two models. The [[ESCALATE]] marker suppression + buffering stay HERE
+        // in the chatbot — the layer just yields `{ delta }` chunks. The terminal
+        // chunk carries the authoritative model that served (may be the fallback).
+        for await (const chunk of generateStream({
+          capability: 'chat-cheap',
+          messages,
+          temperature: TEMPERATURE,
+          maxTokens: MAX_TOKENS,
+          providerOptions: { reasoning: { effort: REASONING_EFFORT } },
+        })) {
+          if (chunk.done) {
+            modelUsed = chunk.modelUsed;
+            continue;
+          }
+          const piece = chunk.delta;
+          if (piece) {
+            content += piece;
+            if (!decided) decide(false);
+            else if (streaming) send({ type: 'delta', text: piece });
+            // decided && escalating → keep buffering silently
           }
         }
         if (!decided) decide(true);
@@ -484,14 +402,17 @@ function streamChatResponse(opts: StreamOpts): Response {
           await finishNormal(content, streaming);
         }
       } catch (err) {
-        console.error('[chatbot] Streaming error', (err as Error)?.name === 'AbortError' ? 'timeout' : err);
+        // Any failure from the AI layer (AllModelsExhaustedError, or a
+        // StreamInterruptedError once tokens were already sent) surfaces the same
+        // way the old path did — an `error` event — so the widget retries with
+        // stream:false and runs the non-streaming failsafe.
+        console.error('[chatbot] Streaming error', (err as Error)?.name === 'AbortError' ? 'aborted' : err);
         try {
           send({ type: 'error' });
         } catch {
           /* controller already closed */
         }
       } finally {
-        clearTimeout(timeout);
         try {
           controller.close();
         } catch {
@@ -699,7 +620,6 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
   // stream:false (this JSON path below, which runs the full failsafe).
   if (body.stream === true) {
     return streamChatResponse({
-      apiKey,
       messages,
       env,
       db,
@@ -709,8 +629,8 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
     });
   }
 
-  // Primary model, then fallback once (see generateReply).
-  const result = await generateReply(messages, apiKey);
+  // chat-cheap tier: primary → fallback, via the AI layer (see generateReply).
+  const result = await generateReply(messages);
 
   // Both models failed: return an honest, contactful message as a normal reply
   // (HTTP 200) so it renders as a Rebi bubble rather than an error toast.
