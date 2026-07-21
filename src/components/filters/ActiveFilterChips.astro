@@ -1,0 +1,38 @@
+---
+/**
+ * Horizontal row of removable active-filter chips. Each chip is a real
+ * <a href> that removes just that filter (SSR-navigable with no JS); the
+ * homepage's delegated listener enhances the click into a fetch-swap.
+ */
+import { iconSvg } from '../../lib/listing';
+import type { FilterChip } from '../../lib/listings-query';
+
+interface Props {
+  chips: FilterChip[];
+}
+
+const { chips } = Astro.props;
+---
+
+{
+  chips.length > 0 && (
+    <ul class="flex flex-wrap items-center gap-2" aria-label="Active filters">
+      {chips.map((chip) => (
+        <li>
+          <a
+            href={chip.removeHref}
+            data-filter-chip
+            aria-label={`Remove filter ${chip.label}: ${chip.value}`}
+            class="inline-flex items-center gap-1.5 rounded-full bg-slate-900/5 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-900/10 transition hover:bg-slate-900/10 hover:text-slate-900"
+          >
+            <span class="text-slate-400">{chip.label}:</span>
+            <span class="font-semibold text-slate-700">{chip.value}</span>
+            <span class="text-slate-400" aria-hidden="true">
+              <Fragment set:html={iconSvg('cross', 'h-3 w-3')} />
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}

@@ -1,0 +1,354 @@
+---
+/**
+ * Slide-in inventory filter drawer.
+ *
+ * Chose a native <dialog> (like ContactModal.astro) styled as a right-side
+ * slide-in panel: <dialog> gives focus-trapping, Escape-to-close and an inert
+ * background for free, and a drawer (vs a centered modal) keeps the results
+ * visible context while filtering. Opened by an external trigger button (id via
+ * `triggerId`) so the button can live in the inventory heading row.
+ *
+ * The <form method="GET" action="/"> is the no-JS backbone: submitting it does a
+ * full SSR navigation that filters correctly. The inline script enhances submit
+ * (and chip / pagination / clear clicks elsewhere on the page) into a
+ * history.pushState + fetch of the /partials/inventory fragment, swapping the
+ * results in place. URL is the ONLY state store — no localStorage / client store.
+ */
+import { iconSvg } from '../../lib/listing';
+import {
+  codeLabel,
+  TRANSMISSION_CODES,
+  FUEL_TYPE_CODES,
+  DRIVE_TYPE_CODES,
+  CONDITION_CODES,
+  SEAT_OPTIONS,
+  type FilterState,
+} from '../../lib/listings-query';
+import { dealerConfig } from '../../config/dealer';
+
+interface Props {
+  state: FilterState;
+  /** id of the button that opens the drawer. */
+  triggerId?: string;
+}
+
+const { state, triggerId = 'filters-trigger' } = Astro.props;
+const { dimensions, bodyTypes, showCondition, defaultSort, priceCap } = dealerConfig.inventory;
+const { sortLabels } = dealerConfig.copy;
+
+// Build the checkbox groups this dealer shows, in config order.
+const opt = (dim: string, codes: readonly (string | number)[]) =>
+  codes.map((c) => ({ value: String(c), label: codeLabel(dim, String(c)) }));
+
+type Group = { name: string; legend: string; options: { value: string; label: string }[]; selected: string[] };
+const groups: Group[] = [];
+if (dimensions.includes('bodyType'))
+  groups.push({ name: 'bodyType', legend: 'Body type', options: opt('bodyType', bodyTypes), selected: state.bodyType });
+if (dimensions.includes('transmission'))
+  groups.push({ name: 'transmission', legend: 'Transmission', options: opt('transmission', TRANSMISSION_CODES), selected: state.transmission });
+if (dimensions.includes('fuelType'))
+  groups.push({ name: 'fuelType', legend: 'Fuel type', options: opt('fuelType', FUEL_TYPE_CODES), selected: state.fuelType });
+if (dimensions.includes('driveType'))
+  groups.push({ name: 'driveType', legend: 'Drive type', options: opt('driveType', DRIVE_TYPE_CODES), selected: state.driveType });
+if (dimensions.includes('seatCount'))
+  groups.push({ name: 'seats', legend: 'Seats', options: opt('seatCount', SEAT_OPTIONS), selected: state.seats.map(String) });
+if (dimensions.includes('condition') && showCondition)
+  groups.push({ name: 'condition', legend: 'Condition', options: opt('condition', CONDITION_CODES), selected: state.condition });
+
+const sortOptions = Object.entries(sortLabels) as [string, string][];
+
+const fieldLabel = 'block text-xs font-semibold uppercase tracking-wide text-slate-400';
+const textInput =
+  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-slate-400 focus:outline-none';
+---
+
+<dialog
+  id="filter-drawer"
+  data-filter-drawer
+  data-trigger={triggerId}
+  aria-labelledby="filter-drawer-title"
+  class="m-0 ml-auto h-dvh w-full max-w-md overflow-y-auto bg-white p-0 shadow-2xl backdrop:bg-slate-900/50"
+>
+  <form
+    method="GET"
+    action="/"
+    data-filter-form
+    data-default-sort={defaultSort}
+    class="flex min-h-full flex-col"
+  >
+    <!-- Header -->
+    <header class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+      <h2 id="filter-drawer-title" class="text-lg font-semibold tracking-tight text-slate-900">Filters</h2>
+      <button
+        type="button"
+        data-drawer-close
+        aria-label="Close filters"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+      >
+        <Fragment set:html={iconSvg('cross', 'h-4 w-4')} />
+      </button>
+    </header>
+
+    <!-- Body -->
+    <div class="flex-1 space-y-6 px-5 py-6">
+      {
+        dimensions.includes('sort') && (
+          <div>
+            <label for="filter-sort" class={fieldLabel}>Sort by</label>
+            <select id="filter-sort" name="sort" class={`mt-2 ${textInput}`}>
+              {sortOptions.map(([value, label]) => (
+                <option value={value} selected={state.sort === value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      }
+
+      {
+        dimensions.includes('price') && (
+          <fieldset>
+            <legend class={fieldLabel}>Price</legend>
+            <div class="mt-2 grid grid-cols-2 gap-3">
+              <input type="number" inputmode="numeric" min="0" name="priceMin" placeholder="Min" value={state.priceMin ?? ''} aria-label="Minimum price" class={textInput} />
+              <input type="number" inputmode="numeric" min="0" max={priceCap} name="priceMax" placeholder="Max" value={state.priceMax ?? ''} aria-label="Maximum price" class={textInput} />
+            </div>
+          </fieldset>
+        )
+      }
+
+      {
+        dimensions.includes('year') && (
+          <fieldset>
+            <legend class={fieldLabel}>Year</legend>
+            <div class="mt-2 grid grid-cols-2 gap-3">
+              <input type="number" inputmode="numeric" min="1900" name="yearMin" placeholder="From" value={state.yearMin ?? ''} aria-label="Earliest year" class={textInput} />
+              <input type="number" inputmode="numeric" min="1900" name="yearMax" placeholder="To" value={state.yearMax ?? ''} aria-label="Latest year" class={textInput} />
+            </div>
+          </fieldset>
+        )
+      }
+
+      {
+        dimensions.includes('odometer') && (
+          <fieldset>
+            <legend class={fieldLabel}>Odometer</legend>
+            <div class="mt-2">
+              <input type="number" inputmode="numeric" min="0" name="odoMax" placeholder="Max km" value={state.odoMax ?? ''} aria-label="Maximum odometer (km)" class={textInput} />
+            </div>
+          </fieldset>
+        )
+      }
+
+      {
+        groups.map((group) => (
+          <fieldset>
+            <legend class={fieldLabel}>{group.legend}</legend>
+            <div class="mt-2 flex flex-wrap gap-2">
+              {group.options.map((o) => (
+                <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 transition has-[:checked]:border-slate-900 has-[:checked]:bg-slate-900 has-[:checked]:text-white hover:border-slate-300">
+                  <input
+                    type="checkbox"
+                    name={group.name}
+                    value={o.value}
+                    checked={group.selected.includes(o.value)}
+                    class="sr-only"
+                  />
+                  {o.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ))
+      }
+    </div>
+
+    <!-- Footer -->
+    <footer class="sticky bottom-0 z-10 flex items-center gap-3 border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+      <a
+        href="/"
+        data-filter-clear
+        class="text-sm font-medium text-slate-500 underline-offset-2 transition hover:text-slate-900 hover:underline"
+      >
+        Clear all
+      </a>
+      <button
+        type="submit"
+        class="ml-auto rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white transition hover:bg-slate-700"
+      >
+        Apply filters
+      </button>
+    </footer>
+  </form>
+</dialog>
+
+<script>
+  // ── Filter drawer + URL-state client enhancement ──────────────────────────
+  // Progressive enhancement over the SSR form/links. URL is the single source of
+  // truth; we never mirror filter state into localStorage or a client store.
+  const dialog = document.querySelector<HTMLDialogElement>('dialog[data-filter-drawer]');
+  const form = dialog?.querySelector<HTMLFormElement>('form[data-filter-form]');
+  const trigger = dialog?.dataset.trigger ? document.getElementById(dialog.dataset.trigger) : null;
+  const results = () => document.getElementById('inventory-results');
+
+  const MULTI = ['bodyType', 'transmission', 'fuelType', 'driveType', 'seats', 'condition'];
+  const RANGES = ['priceMin', 'priceMax', 'yearMin', 'yearMax', 'odoMax'];
+  const defaultSort = form?.dataset.defaultSort ?? 'newest';
+
+  // --- Drawer open/close (with slide animation via [data-open]) --------------
+  function openDrawer() {
+    if (!dialog) return;
+    syncFormFromUrl();
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    requestAnimationFrame(() => dialog.setAttribute('data-open', ''));
+  }
+  function closeDrawer() {
+    if (!dialog) return;
+    dialog.removeAttribute('data-open');
+    // Let the slide-out transition play before removing from the top layer.
+    window.setTimeout(() => dialog.close(), 250);
+  }
+
+  trigger?.addEventListener('click', openDrawer);
+  dialog?.querySelector('[data-drawer-close]')?.addEventListener('click', closeDrawer);
+  // Escape fires the dialog 'cancel' event — animate the close instead of a snap.
+  dialog?.addEventListener('cancel', (e) => {
+    e.preventDefault();
+    closeDrawer();
+  });
+  // Click on the backdrop (outside the panel box) closes.
+  dialog?.addEventListener('click', (event) => {
+    const rect = dialog.getBoundingClientRect();
+    const inside =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
+    if (!inside) closeDrawer();
+  });
+
+  // --- Reflect the current URL back into the form controls -------------------
+  // Keeps the drawer correct after client-side chip/pagination changes made
+  // while it was closed.
+  function syncFormFromUrl() {
+    if (!form) return;
+    const sp = new URLSearchParams(window.location.search);
+    form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((cb) => (cb.checked = false));
+    for (const name of MULTI) {
+      const vals = sp.getAll(name).flatMap((v) => v.split(',')).map((s) => s.trim());
+      form
+        .querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)
+        .forEach((cb) => (cb.checked = vals.includes(cb.value)));
+    }
+    for (const name of RANGES) {
+      const el = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+      if (el) el.value = sp.get(name) ?? '';
+    }
+    const sortEl = form.querySelector('select[name="sort"]') as HTMLSelectElement | null;
+    if (sortEl) sortEl.value = sp.get('sort') ?? defaultSort;
+  }
+
+  // --- Build a canonical URL from the form (comma-joined multis) -------------
+  function urlFromForm(): string {
+    if (!form) return '/';
+    const fd = new FormData(form);
+    const sp = new URLSearchParams();
+    for (const name of MULTI) {
+      const vals = fd.getAll(name).map(String).filter(Boolean);
+      if (vals.length) sp.set(name, vals.join(','));
+    }
+    for (const name of RANGES) {
+      const v = String(fd.get(name) ?? '').trim();
+      if (v) sp.set(name, v);
+    }
+    const sort = String(fd.get('sort') ?? '');
+    if (sort && sort !== defaultSort) sp.set('sort', sort);
+    // Applying filters resets to page 1 (page omitted).
+    const qs = sp.toString();
+    return qs ? `/?${qs}` : '/';
+  }
+
+  // --- Fetch the partial for a URL and swap the results in place -------------
+  let seq = 0;
+  async function applyUrl(url: string, push = true) {
+    if (push) window.history.pushState({}, '', url);
+    updateBadge();
+    const my = ++seq;
+    const partialUrl = '/partials/inventory' + new URL(url, window.location.origin).search;
+    try {
+      const res = await fetch(partialUrl, { headers: { 'X-Requested-With': 'fetch' } });
+      if (!res.ok) throw new Error(`partial ${res.status}`);
+      const html = await res.text();
+      if (my !== seq) return; // a newer request superseded this one
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const next = doc.getElementById('inventory-results');
+      const cur = results();
+      if (next && cur) {
+        cur.replaceWith(next);
+        updateBadge();
+      }
+    } catch {
+      // Network/enhancement failure — fall back to a full navigation.
+      window.location.href = url;
+    }
+  }
+
+  // Active-filter count badge on the trigger button — derived from the rendered
+  // chips so it always matches exactly.
+  function updateBadge() {
+    const badge = trigger?.querySelector<HTMLElement>('[data-filter-count]');
+    if (!badge) return;
+    const count = document.querySelectorAll('#inventory-results [data-filter-chip]').length;
+    if (count > 0) {
+      badge.textContent = String(count);
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  // --- Wire up submit + delegated link enhancement ---------------------------
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    applyUrl(urlFromForm());
+    closeDrawer();
+  });
+
+  // Chips, "Clear all", and pagination links anywhere on the page.
+  document.addEventListener('click', (e) => {
+    const link = (e.target as HTMLElement).closest<HTMLAnchorElement>(
+      'a[data-filter-chip], a[data-filter-clear], a[data-page-link]',
+    );
+    if (!link) return;
+    e.preventDefault();
+    applyUrl(link.getAttribute('href') || '/');
+    if (dialog?.open) closeDrawer();
+  });
+
+  // Back/forward navigation re-syncs the grid from the URL.
+  window.addEventListener('popstate', () => applyUrl(window.location.href, false));
+
+  // Initial badge state on hard load.
+  updateBadge();
+</script>
+
+<style>
+  /* Slide-in animation. The panel starts off-screen right and slides in once
+     [data-open] is set on the next frame after showModal(). */
+  dialog[data-filter-drawer] {
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+  dialog[data-filter-drawer][data-open] {
+    transform: translateX(0);
+  }
+  dialog[data-filter-drawer]::backdrop {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  dialog[data-filter-drawer][data-open]::backdrop {
+    opacity: 1;
+  }
+</style>

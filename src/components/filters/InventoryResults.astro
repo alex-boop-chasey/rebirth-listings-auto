@@ -1,0 +1,154 @@
+---
+/**
+ * The swappable inventory region (`#inventory-results`): active-filter chips,
+ * result count, the listings grid (or empty state), and pagination.
+ *
+ * Rendered IDENTICALLY by the homepage (`src/pages/index.astro`) and the
+ * fetch-swap partial (`src/pages/partials/inventory.astro`), so a client-side
+ * filter change can replace this whole node with the partial's output and the
+ * result is byte-for-byte what a hard SSR load would produce.
+ */
+import ListingCard from '../ListingCard.astro';
+import ActiveFilterChips from './ActiveFilterChips.astro';
+import { iconSvg } from '../../lib/listing';
+import type { Listing } from '../../lib/listing';
+import { activeChips, totalPages, pageHref, type FilterState } from '../../lib/listings-query';
+import { dealerConfig } from '../../config/dealer';
+
+interface Props {
+  listings: Listing[];
+  total: number;
+  state: FilterState;
+}
+
+const { listings, total, state } = Astro.props;
+
+const chips = activeChips(state);
+const pages = totalPages(total);
+const currentPage = Math.min(Math.max(state.page, 1), pages);
+const { pageSize } = dealerConfig.inventory;
+const firstShown = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+const lastShown = Math.min(currentPage * pageSize, total);
+
+// Compact page window: 1, last, current±1, with ellipsis gaps. Keeps the control
+// sane when a dealer's inventory spans many pages.
+function pageWindow(current: number, last: number): (number | 'gap')[] {
+  const wanted = new Set<number>([1, last, current - 1, current, current + 1]);
+  const nums = [...wanted].filter((n) => n >= 1 && n <= last).sort((a, b) => a - b);
+  const out: (number | 'gap')[] = [];
+  let prev = 0;
+  for (const n of nums) {
+    if (prev && n - prev > 1) out.push('gap');
+    out.push(n);
+    prev = n;
+  }
+  return out;
+}
+
+const windowPages = pages > 1 ? pageWindow(currentPage, pages) : [];
+
+const pageLink =
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50';
+const pageLinkActive =
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white';
+const pageLinkDisabled =
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-100 bg-white px-3 text-sm font-medium text-slate-300 cursor-not-allowed';
+---
+
+<div id="inventory-results">
+  {
+    chips.length > 0 && (
+      <div class="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <ActiveFilterChips chips={chips} />
+        <a
+          href="/"
+          data-filter-clear
+          class="text-xs font-medium text-slate-500 underline-offset-2 transition hover:text-slate-900 hover:underline"
+        >
+          Clear all
+        </a>
+      </div>
+    )
+  }
+
+  <p class="mt-6 text-sm text-slate-500" data-results-count>
+    {
+      total === 0
+        ? 'No vehicles match your filters'
+        : `Showing ${firstShown}–${lastShown} of ${total} ${total === 1 ? 'vehicle' : 'vehicles'}`
+    }
+  </p>
+
+  {
+    total > 0 ? (
+      <section class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {listings.map((listing) => (
+          <ListingCard listing={listing} />
+        ))}
+      </section>
+    ) : (
+      <div class="mt-6 rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
+        <div class="mx-auto mb-4 flex w-fit justify-center text-slate-300">
+          <Fragment set:html={iconSvg('car', 'h-10 w-10')} />
+        </div>
+        <h2 class="text-lg font-semibold text-slate-900">
+          {chips.length > 0 ? 'No vehicles match your filters' : 'No vehicles in stock right now'}
+        </h2>
+        <p class="mt-1 text-sm text-slate-500">
+          {chips.length > 0
+            ? 'Try widening or clearing a filter to see more.'
+            : 'New arrivals land regularly — check back soon or get in touch.'}
+        </p>
+        {chips.length > 0 && (
+          <a
+            href="/"
+            data-filter-clear
+            class="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
+          >
+            Clear all filters
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  {
+    pages > 1 && (
+      <nav class="mt-10 flex items-center justify-center gap-1" aria-label="Pagination">
+        {currentPage > 1 ? (
+          <a href={pageHref(state, currentPage - 1)} data-page-link rel="prev" class={pageLink} aria-label="Previous page">
+            <Fragment set:html={iconSvg('arrowLeft', 'h-3.5 w-3.5')} />
+          </a>
+        ) : (
+          <span class={pageLinkDisabled} aria-hidden="true">
+            <Fragment set:html={iconSvg('arrowLeft', 'h-3.5 w-3.5')} />
+          </span>
+        )}
+
+        {windowPages.map((p) =>
+          p === 'gap' ? (
+            <span class="px-1 text-slate-400">…</span>
+          ) : p === currentPage ? (
+            <span class={pageLinkActive} aria-current="page">
+              {p}
+            </span>
+          ) : (
+            <a href={pageHref(state, p)} data-page-link class={pageLink}>
+              {p}
+            </a>
+          ),
+        )}
+
+        {currentPage < pages ? (
+          <a href={pageHref(state, currentPage + 1)} data-page-link rel="next" class={pageLink} aria-label="Next page">
+            <Fragment set:html={iconSvg('arrow', 'h-3.5 w-3.5')} />
+          </a>
+        ) : (
+          <span class={pageLinkDisabled} aria-hidden="true">
+            <Fragment set:html={iconSvg('arrow', 'h-3.5 w-3.5')} />
+          </span>
+        )}
+      </nav>
+    )
+  }
+</div>
