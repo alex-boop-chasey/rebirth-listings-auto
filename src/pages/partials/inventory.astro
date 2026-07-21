@@ -1,0 +1,26 @@
+---
+/**
+ * Inventory results fragment — the fetch target for client-side filter changes.
+ *
+ * Renders ONLY <InventoryResults> (Astro partial: no <html> wrapper) using the
+ * exact same parse → query → fetch path as the homepage, so a swapped-in result
+ * is identical to a hard SSR load. Lives under /pages/partials/, NOT the
+ * off-limits /pages/api/.
+ */
+export const prerender = false;
+export const partial = true;
+
+import { client } from '../../sanity/lib/client';
+import InventoryResults from '../../components/filters/InventoryResults.astro';
+import { parseFilters, buildListingsQuery, type InventoryResult } from '../../lib/listings-query';
+
+// Same edge-cache policy as the homepage (DECISION.md Decision 5): each unique
+// filter URL caches separately at Cloudflare, so repeat combinations feel static.
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
+const state = parseFilters(Astro.url.searchParams);
+const { query, params } = buildListingsQuery(state);
+const { items, total } = await client.fetch<InventoryResult>(query, params);
+---
+
+<InventoryResults listings={items} total={total} state={state} />

@@ -1,18 +1,36 @@
 ---
+// SSR (not prerendered): the homepage reads filter/pagination params from the
+// URL and filters server-side, so it can't be baked at build time. Mirrors
+// compare.astro, which opts into SSR the same way.
+export const prerender = false;
+
 import '../styles/global.css';
 import { client } from '../sanity/lib/client';
-import ListingCard, { type Listing } from '../components/ListingCard.astro';
 import CompareTray from '../components/CompareTray.astro';
 import ChatWidget from '../components/widgets/ChatWidget.astro';
+import FilterDrawer from '../components/filters/FilterDrawer.astro';
+import InventoryResults from '../components/filters/InventoryResults.astro';
 import { iconSvg } from '../lib/listing';
-import { LISTING_FIELDS } from '../lib/listing';
+import {
+  parseFilters,
+  buildListingsQuery,
+  activeChips,
+  type InventoryResult,
+} from '../lib/listings-query';
 
-// Car dealership: only vehicle listings are shown here.
-const listings = await client.fetch<Listing[]>(
-  `*[_type == "listing" && category == "automotive"]{ ${LISTING_FIELDS} } | order(listingDate desc)`,
-);
+// Edge caching (DECISION.md Decision 5): anonymous/unfiltered hits get served
+// from Cloudflare's cache and feel static; each unique filter URL caches
+// separately. Recovers most of the TTFB we'd otherwise lose by dropping
+// prerender.
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
-const vehicleCount = listings.length;
+// URL is the single source of truth. Parse the filter state, then filter +
+// paginate server-side via the shared query builder (reused by the partial).
+const filterState = parseFilters(Astro.url.searchParams);
+const { query, params } = buildListingsQuery(filterState);
+const { items: listings, total } = await client.fetch<InventoryResult>(query, params);
+
+const activeCount = activeChips(filterState).length;
 const year = new Date().getFullYear();
 
 const title = 'Rebirth Listings Auto — quality vehicles, ready to drive away';
@@ -92,34 +110,31 @@ const canonicalURL = new URL(
           </p>
         </section>
 
-        <!-- Inventory heading -->
+        <!-- Inventory heading + filter trigger -->
         <div id="inventory" class="flex items-end justify-between border-b border-slate-200 pb-4">
           <h2 class="text-xl font-semibold tracking-tight text-slate-900">Current inventory</h2>
-          <span class="text-sm text-slate-500">
-            {vehicleCount} {vehicleCount === 1 ? 'vehicle' : 'vehicles'} available
-          </span>
+          <button
+            type="button"
+            id="filters-trigger"
+            class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <Fragment set:html={iconSvg('filter', 'h-4 w-4')} />
+            Filters
+            <span
+              data-filter-count
+              hidden={activeCount === 0}
+              class="inline-flex min-w-5 items-center justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-xs font-semibold text-white"
+            >
+              {activeCount}
+            </span>
+          </button>
         </div>
 
-        <!-- Listings grid -->
-        {
-          vehicleCount > 0 ? (
-            <section class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {listings.map((listing) => (
-                <ListingCard listing={listing} />
-              ))}
-            </section>
-          ) : (
-            <div class="mt-8 rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
-              <div class="mx-auto mb-4 flex w-fit justify-center text-slate-300">
-                <Fragment set:html={iconSvg('car', 'h-10 w-10')} />
-              </div>
-              <h2 class="text-lg font-semibold text-slate-900">No vehicles in stock right now</h2>
-              <p class="mt-1 text-sm text-slate-500">
-                New arrivals land regularly — check back soon or get in touch.
-              </p>
-            </div>
-          )
-        }
+        <!-- Filter drawer (persistent; lives outside the swappable results) -->
+        <FilterDrawer state={filterState} triggerId="filters-trigger" />
+
+        <!-- Swappable inventory results (chips + grid + pagination) -->
+        <InventoryResults listings={listings} total={total} state={filterState} />
       </main>
 
       <!-- Footer -->
