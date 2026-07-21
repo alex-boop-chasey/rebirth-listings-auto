@@ -5,21 +5,10 @@
  * limits here. No dependencies — portable to a Cloudflare Worker/Pages Function.
  */
 
-// OpenRouter is OpenAI-compatible. See https://openrouter.ai/docs/quickstart
-export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-
-// Free model requested for this project.
-// https://openrouter.ai/openai/gpt-oss-20b:free
-export const MODEL = 'openai/gpt-oss-20b:free';
-
-// Failsafe: if the primary model errors, times out, or returns an empty
-// completion, we retry ONCE against this model before giving up. Kept on the
-// free tier per project preference — a different provider from the primary so
-// a single provider's outage doesn't take both down. It's a one-line swap to a
-// cheap paid model (e.g. 'openai/gpt-4o-mini') if free-tier reliability isn't
-// enough. NOTE: this is not a reasoning model, so the `reasoning` param is only
-// sent for the primary (see core.ts callModel).
-export const FALLBACK_MODEL = 'nousresearch/hermes-3-llama-3.1-405b:free';
+// Model selection and the primary→fallback list now live in the AI provider
+// layer (src/ai/tiers.ts, capability "chat-cheap"), not here. The old
+// OPENROUTER_URL / MODEL / FALLBACK_MODEL constants were removed when the
+// chatbot migrated onto that layer.
 
 // Sent to OpenRouter for ranking/analytics (optional but recommended).
 export const APP_URL = 'https://rebirth-listings-auto.pages.dev';
