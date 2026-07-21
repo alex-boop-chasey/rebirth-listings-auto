@@ -1,0 +1,23 @@
+import 'dotenv/config';
+import { createClient } from '@sanity/client';
+// Mirror import-bundaberg.ts client setup exactly.
+const projectId = process.env.PUBLIC_SANITY_PROJECT_ID;
+const dataset = process.env.PUBLIC_SANITY_DATASET;
+const apiVersion = process.env.PUBLIC_SANITY_API_VERSION ?? '2024-01-01';
+const token = process.env.SANITY_TOKEN;
+console.log('=== IMPORT SCRIPT CONNECTION (from .env) ===');
+console.log('projectId :', JSON.stringify(projectId));
+console.log('dataset   :', JSON.stringify(dataset));
+console.log('apiVersion:', JSON.stringify(apiVersion));
+console.log('token     :', token ? `set (len ${token.length}, …${token.slice(-4)})` : 'MISSING');
+const client = createClient({ projectId, dataset, apiVersion, token, useCdn: false });
+const total = await client.fetch('count(*[_type=="listing"])');
+const byCat = await client.fetch('*[_type=="listing"]{category}|order(category)');
+const cat: Record<string,number> = {};
+for (const r of byCat) cat[r.category ?? '(none)'] = (cat[r.category ?? '(none)']||0)+1;
+const rows = await client.fetch('*[_type=="listing"]{_id,title,category}|order(_id)');
+console.log('\n=== DATA (this projectId/dataset) ===');
+console.log('total listings:', total);
+console.log('by category   :', JSON.stringify(cat));
+console.log('all listings:');
+for (const r of rows) console.log(`  ${r._id}  [${r.category}]  ${r.title}`);
