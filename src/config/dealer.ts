@@ -50,6 +50,23 @@ export interface DealerConfig {
     /** Human labels for each sort option, keyed by SortKey. */
     sortLabels: Record<SortKey, string>;
   };
+  /**
+   * AI-feature settings — dealer-scoped toggles and limits only. The model
+   * choice is owned centrally by src/ai/ capability tiers (DECISION.md
+   * Decision 3) and the prompts are feature-scoped (src/lib/ai-search/); neither
+   * belongs here.
+   */
+  ai: {
+    /** Natural-language inventory search (Phase 2 extraction core onward). */
+    search: {
+      /** Master on/off — lets a dealer disable AI search without a deploy. */
+      enabled: boolean;
+      /** Per-IP rate limit for the search endpoint. Defaults mirror the chatbot. */
+      rateLimit: { windowSeconds: number; maxRequests: number };
+      /** Max accepted query length (chars); longer requests are rejected pre-AI. */
+      maxQueryLength: number;
+    };
+  };
 }
 
 // Sort options are a fixed whitelist (see src/lib/listings-query.ts for how each
@@ -118,6 +135,14 @@ export const dealerConfig: DealerConfig = {
       'price-desc': 'Price: high to low',
       'year-desc': 'Year: newest',
       'odo-asc': 'Odometer: lowest',
+    },
+  },
+  ai: {
+    search: {
+      enabled: true,
+      // Defaults mirror the chatbot's limiter (RATE_LIMIT_MAX / _WINDOW_SECONDS).
+      rateLimit: { windowSeconds: 3600, maxRequests: 10 },
+      maxQueryLength: 500,
     },
   },
 };

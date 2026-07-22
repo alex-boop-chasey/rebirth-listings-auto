@@ -1,4 +1,8 @@
-import { urlFor } from '../sanity/lib/image';
+// Type-only import: `urlFor` is referenced solely in a type position below
+// (`Parameters<typeof urlFor>`), so importing it as a value would needlessly
+// construct the Sanity client at module load — which also breaks importing this
+// module (and the filter logic built on it) outside Astro/Vite, e.g. in tests.
+import type { urlFor } from '../sanity/lib/image';
 import { dealerConfig } from '../config/dealer';
 
 // --- Types -------------------------------------------------------------------

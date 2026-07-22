@@ -30,10 +30,27 @@ import { dealerConfig, type SortKey } from '../config/dealer';
 // The enum VALUES are schema-derived (see src/sanity/schemaTypes/listing.ts) and
 // double as URL param values. Which body types a dealer SHOWS is dealer config
 // (dealerConfig.inventory.bodyTypes); the other enums are shown in full.
+// Full vehicleSpecs.bodyType enum (the schema's complete set). Which of these a
+// given dealer SHOWS is a subset in dealerConfig.inventory.bodyTypes; this is the
+// canonical full list, used e.g. by the AI-search extraction schema.
+export const BODY_TYPE_CODES = [
+  'sedan',
+  'hatchback',
+  'suv',
+  'ute',
+  'wagon',
+  'van',
+  'coupe',
+  'convertible',
+] as const;
 export const TRANSMISSION_CODES = ['auto', 'manual'] as const;
 export const FUEL_TYPE_CODES = ['petrol', 'diesel', 'hybrid', 'electric', 'lpg'] as const;
 export const DRIVE_TYPE_CODES = ['2wd', 'awd', '4wd'] as const;
 export const CONDITION_CODES = ['new', 'used', 'demo'] as const;
+// The sort whitelist as a runtime array (keys of SORT_CLAUSES). Mirrors the
+// SortKey union in config/dealer.ts; the `satisfies` check fails the build if the
+// two ever drift.
+export const SORT_KEYS = ['newest', 'price-asc', 'price-desc', 'year-desc', 'odo-asc'] as const satisfies readonly SortKey[];
 // Common seat counts offered in the UI. A universal vehicle attribute, not a
 // dealer-brand value — kept here (shared lib) rather than in a component.
 export const SEAT_OPTIONS = [2, 4, 5, 7, 8] as const;
