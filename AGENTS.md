@@ -5,6 +5,20 @@ Claude.ai project) writes the tickets you receive; the repo owner runs irreversi
 approves at gates. Your job is to execute those tickets accurately and safely, verify your work,
 and stop for approval where instructed. This file is the standing context for how to do that well.
 
+**Before working, read `DECISIONS.md` in the repo root.** It records the project's true north and
+the reasoning behind every major architectural decision. Do not reverse or undercut a decision
+recorded there; if a ticket appears to conflict with it, STOP and flag it.
+
+## Tenant-readiness (non-negotiable — see DECISIONS.md)
+
+This is a single-tenant build that must stay easy to convert to multi-tenant later. Hard rules:
+- Dealer-specific values (name, logo, colours, domain, contact details, AI config, feature flags)
+  MUST come from one central dealer-config object, read at runtime. NEVER hardcode them in
+  components, pages, scripts, or logic.
+- Refer to "the current dealer" resolved from that config — never bake in a dealer name.
+- Never write code that assumes a single dealer in a way that couldn't later accept a tenant ID.
+- If a ticket would require violating these rules, STOP and flag it rather than hardcoding.
+
 ## What the project is
 
 A commercial car-dealership listings website — the automotive vertical of what began as a
@@ -34,15 +48,15 @@ and durability over quick hacks. This is not a throwaway demo.
 
 When starting the dev server, use background mode:
 
-```
+\`\`\`
 astro dev --background
-```
+\`\`\`
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+Manage the background server with \`astro dev stop\`, \`astro dev status\`, and \`astro dev logs\`.
 
 If you hit a Vite "file does not exist in optimize deps" 500 after a config/dep change, it's a
 stale optimizer cache on a long-running server — restart the dev server (or delete
-`node_modules/.vite` and restart). It is not a code bug.
+\`node_modules/.vite\` and restart). It is not a code bug.
 
 ## How you should work — non-negotiable conventions
 
@@ -57,65 +71,65 @@ Respect the stop. Do not proceed past a Phase 1 stop on your own initiative, eve
 seems obvious.
 
 ### Never perform an irreversible action without explicit approval
-Data deletions, migrations that write (`--commit`), and force-pushes are the owner's to run, or
+Data deletions, migrations that write (\`--commit\`), and force-pushes are the owner's to run, or
 require explicit in-ticket approval. Before any destructive step, show an explicit list of exactly
-what will change (e.g. the specific document `_id`s to be deleted). **Delete/patch by explicit ID,
+what will change (e.g. the specific document \`_id\`s to be deleted). **Delete/patch by explicit ID,
 never by a broad query-match**, so the operation can't sweep up more than intended.
 
 ### Dry-run before commit
-Data/migration scripts default to dry-run and require an explicit `--commit` flag to write. Always
-run the dry-run, surface the diff and any WARN lines, and let the owner review before `--commit`.
+Data/migration scripts default to dry-run and require an explicit \`--commit\` flag to write. Always
+run the dry-run, surface the diff and any WARN lines, and let the owner review before \`--commit\`.
 Migrations should be idempotent (only write fields that are empty/absent), so re-running is safe.
 
 ### Determinism over guessing
 For data-mapping logic, only map values you can confidently match. Anything ambiguous should fall
-through to a logged `WARN`, never a silent guess. A wrong-but-plausible value written silently is
+through to a logged \`WARN\`, never a silent guess. A wrong-but-plausible value written silently is
 worse than an empty field the owner can fix. When you spot a latent mismapping (e.g. a shorter enum
 code that is a substring of a longer term), fix it by testing specific-before-generic, and report it.
 
 ### Respect scope guardrails
 Tickets will list what NOT to touch. Common off-limits areas unless a ticket says otherwise:
-`src/chatbot/`, `src/pages/api/`, `src/components/widgets/`, `wrangler.jsonc`, and any feature code
+\`src/chatbot/\`, \`src/pages/api/\`, \`src/components/widgets/\`, \`wrangler.jsonc\`, and any feature code
 outside the current ticket. If you believe you need to touch something out of scope, STOP and ask.
 
 ### Verify before declaring done
-- Run `npx astro check` after structural changes; it must pass (0 errors).
+- Run \`npx astro check\` after structural changes; it must pass (0 errors).
 - Confirm the homepage still renders the expected listings.
 - For data changes, re-query and report the resulting counts/distribution.
-- Clean up any temporary scratch scripts you created for one-off queries — leave no `_tmp-*` files.
+- Clean up any temporary scratch scripts you created for one-off queries — leave no \`_tmp-*\` files.
 
 ### Commits
 Don't push unless asked. When committing, prefer logical commits split by ticket over one squashed
-blob, with clear conventional-commit messages. Use `git push --force-with-lease` (never plain
-`--force`) if a history rewrite is ever needed.
+blob, with clear conventional-commit messages. Use \`git push --force-with-lease\` (never plain
+\`--force\`) if a history rewrite is ever needed.
 
 ## Data model essentials
 
-- Listings are Sanity documents. `category` is pinned to `automotive` (hidden/readOnly) — the repo
+- Listings are Sanity documents. \`category\` is pinned to \`automotive\` (hidden/readOnly) — the repo
   is automotive-only. Do not reintroduce real-estate anything.
-- **`vehicleSpecs`** (typed object) holds the filterable dimensions: `bodyType`, `transmission`,
-  `fuelType`, `driveType`, `seatCount`, `year`, `odometer`, `condition`. Enum values are lowercase
-  codes (`suv`, `auto`, `hybrid`, `2wd`, …) that double as URL filter params. These are the
+- **\`vehicleSpecs\`** (typed object) holds the filterable dimensions: \`bodyType\`, \`transmission\`,
+  \`fuelType\`, \`driveType\`, \`seatCount\`, \`year\`, \`odometer\`, \`condition\`. Enum values are lowercase
+  codes (\`suv\`, \`auto\`, \`hybrid\`, \`2wd\`, …) that double as URL filter params. These are the
   reliable fields to filter on.
-- **`details[]`** is a loose key/value array for arbitrary extras (sunroof, tow pack, etc.). Display
-  helpers read from it. Keep it; it is not redundant with `vehicleSpecs`.
-- **`scripts/lib/vehicle-specs.ts`** is the single source of truth mapping `details[]` labels →
-  typed `vehicleSpecs`, reused by the migration and seed/import scripts. Known rule:
-  **`petrol-electric` → `hybrid`, not `electric`** (hybrid patterns tested before generic electric);
+- **\`details[]\`** is a loose key/value array for arbitrary extras (sunroof, tow pack, etc.). Display
+  helpers read from it. Keep it; it is not redundant with \`vehicleSpecs\`.
+- **\`scripts/lib/vehicle-specs.ts\`** is the single source of truth mapping \`details[]\` labels →
+  typed \`vehicleSpecs\`, reused by the migration and seed/import scripts. Known rule:
+  **\`petrol-electric\` → \`hybrid\`, not \`electric\`** (hybrid patterns tested before generic electric);
   ambiguous transmission compounds fall through to WARN. Preserve these behaviours.
-- **`LISTING_FIELDS`** in `src/lib/listing.ts` is the shared GROQ projection — extend it when adding
+- **\`LISTING_FIELDS\`** in \`src/lib/listing.ts\` is the shared GROQ projection — extend it when adding
   fields that pages need, but don't alter the display helpers unless the ticket says so.
 
 ## AI code direction
 
-The project is moving toward a **provider abstraction layer at `src/ai/`** that every AI feature
-calls — nothing should call OpenRouter inline once it exists. It uses capability tiers mapped
-centrally to models, centralises structured output and fallback, and uses pluggable provider
-adapters behind one internal message format. Current decisions: **OpenRouter-only adapter** (it
-already serves every model including Anthropic's; do not add a direct-Anthropic adapter — cost
-matters); **per-feature tiers** in one config; **free-tier models during build**. When you build or
-touch AI-calling code, route it through this layer (or, if the layer doesn't exist yet in your
-ticket, structure the code so it can be trivially moved behind it).
+All AI features go through the **provider abstraction layer at \`src/ai/\`** — nothing calls
+OpenRouter inline. It uses capability tiers mapped centrally to models, centralises structured
+output (\`generateObject\` with Zod) and fallback, and uses pluggable provider adapters behind one
+internal message format. Public API is the \`~/ai\` barrel (\`generate\`, \`generateObject\`,
+\`generateStream\`); never import from \`src/ai/providers/\` outside that folder. Current decisions:
+**OpenRouter-only adapter** (it already serves every model including Anthropic's; do not add a
+direct-Anthropic adapter — cost matters); **per-feature tiers** in one config; **free-tier models
+during build**. When you build or touch AI-calling code, route it through this layer.
 
 ## When something is off
 
