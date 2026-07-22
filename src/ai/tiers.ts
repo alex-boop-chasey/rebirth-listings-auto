@@ -45,9 +45,13 @@ export const TIERS = {
     defaultTemperature: 0.7,
     defaultMaxTokens: 2048,
   },
-  // Anything needing reliable JSON output.
+  // Anything needing reliable JSON output. Free model primary during the build
+  // (no OpenRouter credit spend); paid Haiku as fallback when the free tier is
+  // rate-limited/unavailable. Different labs (Google vs Anthropic) → uncorrelated
+  // failures. NOTE: for the Phase 3 demo, swap the primary back to Haiku (or
+  // better) for extraction quality — one-line change here.
   structured: {
-    models: ['anthropic/claude-haiku-4-5'],
+    models: ['google/gemma-4-26b-a4b-it:free', 'anthropic/claude-haiku-4-5'],
     defaultTemperature: 0,
     defaultMaxTokens: 2048,
   },
