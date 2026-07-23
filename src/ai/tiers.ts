@@ -39,9 +39,13 @@ export const TIERS = {
   'chat-quality': {
     models: ['anthropic/claude-haiku-4-5'],
   },
-  // Long-form generation (Sanity descriptions). Quality matters more than cost.
+  // Long-form generation (Sanity descriptions).
+  // Order matches `structured` — free primary while credits are dry; reorder to Haiku-primary is a one-line change per Decision 3.
   writing: {
-    models: ['anthropic/claude-haiku-4-5'],
+    models: [
+      'google/gemma-4-26b-a4b-it:free', // primary, free, works today
+      'anthropic/claude-haiku-4-5',     // fallback, swap to primary after credit top-up
+    ],
     defaultTemperature: 0.7,
     defaultMaxTokens: 2048,
   },
