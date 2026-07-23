@@ -72,6 +72,31 @@ export interface DealerConfig {
       /** Max accepted query length (chars); longer requests are rejected pre-AI. */
       maxQueryLength: number;
     };
+    /**
+     * Voice/tone knobs read by the description generator prompt.
+     * Multi-tenant seam: today one dealer; later keyed by tenant so each
+     * dealership gets its own voice without prompt edits. See Decision 1 in
+     * DECISION.md — never inline these into prompt strings elsewhere.
+     */
+    descriptionVoice: {
+      /** Prompt voice. The tone the generator writes in for this dealer. */
+      tone: DescriptionTone;
+      /** BCP-47 locale steering spelling/idiom (e.g. 'en-AU' → 'colour', 'tyres'). */
+      locale: string;
+    };
+    /**
+     * Origin allowlist for Studio-only endpoints (generate-description). Tenant
+     * seam — later keyed per dealer domain. NEVER hardcode the origin in the
+     * endpoint; it reads this list.
+     */
+    studioOrigins: string[];
+    /** Dealer-facing AI description generator (Studio "Generate description"). */
+    generateDescription: {
+      /** Master on/off — lets a dealer disable the button without a deploy. */
+      enabled: boolean;
+      /** Per-IP rate limit for the generate-description endpoint. */
+      rateLimit: { windowSeconds: number; maxRequests: number };
+    };
   };
   /**
    * Hero AI search bar (Phase 3a) — dealer-scoped UI copy and typewriter timings.
@@ -98,6 +123,13 @@ export interface DealerConfig {
 // Sort options are a fixed whitelist (see src/lib/listings-query.ts for how each
 // maps to a GROQ order clause). `newest` is the safe default.
 export type SortKey = 'newest' | 'price-asc' | 'price-desc' | 'year-desc' | 'odo-asc';
+
+// The voices the AI description generator can write in. Kept a literal union so a
+// config with an unknown tone fails typecheck rather than reaching the prompt.
+export type DescriptionTone =
+  | 'confident-professional'
+  | 'friendly-casual'
+  | 'premium-restrained';
 
 // Body-type codes mirror the Sanity vehicleSpecs enum. Kept as a literal union so
 // a config that lists an unknown code fails typecheck rather than at runtime.
@@ -183,6 +215,20 @@ export const dealerConfig: DealerConfig = {
       // Defaults mirror the chatbot's limiter (RATE_LIMIT_MAX / _WINDOW_SECONDS).
       rateLimit: { windowSeconds: 3600, maxRequests: 10 },
       maxQueryLength: 500,
+    },
+    descriptionVoice: {
+      tone: 'confident-professional',
+      locale: 'en-AU',
+    },
+    studioOrigins: [
+      'http://localhost:4321', // embedded Studio in `astro dev` (studioBasePath: '/studio')
+      // TODO: add prod Studio origin once deployed
+    ],
+    generateDescription: {
+      enabled: true,
+      // Studio authoring is far lower-volume than shopper search, but still capped
+      // per-IP to bound AI cost. 20/hour is generous for a dealer editing listings.
+      rateLimit: { windowSeconds: 3600, maxRequests: 20 },
     },
   },
   aiSearch: {
