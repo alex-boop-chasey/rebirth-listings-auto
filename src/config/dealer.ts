@@ -222,7 +222,7 @@ export const dealerConfig: DealerConfig = {
     },
     studioOrigins: [
       'http://localhost:4321', // embedded Studio in `astro dev` (studioBasePath: '/studio')
-      // TODO: add prod Studio origin once deployed
+      'https://rebirth-listings-auto.alexharris0079.workers.dev', // prod Studio origin
     ],
     generateDescription: {
       enabled: true,
