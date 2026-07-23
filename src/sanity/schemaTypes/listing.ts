@@ -35,6 +35,19 @@ export const listing = defineType({
       description: 'Rich text description.',
       of: [defineArrayMember({ type: 'block' })],
     }),
+    // Private dealer shorthand — NEVER shown to buyers. Deliberately not added to
+    // LISTING_FIELDS (src/lib/listing.ts), so it stays server-side. Feeds the AI
+    // description generator, and (future) search/chat grounding. Persistent:
+    // survives description regeneration.
+    defineField({
+      name: 'dealerNotes',
+      title: 'Dealer notes (for AI)',
+      type: 'text',
+      rows: 4,
+      description:
+        "Rough shorthand like 'one owner, full service history, tow bar, no accidents'. " +
+        'Not shown to buyers directly. Used by AI description generator, search, and chat.',
+    }),
     defineField({
       name: 'price',
       title: 'Price',
