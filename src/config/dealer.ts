@@ -38,6 +38,12 @@ export interface DealerConfig {
     defaultSort: SortKey;
     /** Upper bound (inclusive) of this dealer's price range control. */
     priceCap: number;
+    /** Price steps this dealer offers in the price filter dropdowns (whole dollars). */
+    priceOptions: readonly number[];
+    /** Years this dealer offers in the year filter dropdowns (calendar years). */
+    yearOptions: readonly number[];
+    /** Odometer steps this dealer offers in the odometer filter dropdown (whole km). */
+    odoOptions: readonly number[];
     /** Body types this dealer shows, in display order (subset of the schema enum). */
     bodyTypes: BodyTypeCode[];
     /** Whether this dealer surfaces the "condition" (new/used/demo) filter. */
@@ -113,6 +119,20 @@ export const dealerConfig: DealerConfig = {
     pageSize: 12,
     defaultSort: 'newest',
     priceCap: 150000,
+    // Price steps this dealer offers in the price dropdowns (whole dollars).
+    priceOptions: [
+      5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 50000, 60000, 75000, 100000, 150000,
+    ],
+    // Years this dealer offers, newest-first: 2000 → current calendar year.
+    // Generated at module load so the upper bound advances automatically on each
+    // redeploy — the component never reads the runtime clock itself.
+    yearOptions: (() => {
+      const years: number[] = [];
+      for (let y = new Date().getFullYear(); y >= 2000; y--) years.push(y);
+      return years;
+    })(),
+    // Odometer steps this dealer offers in the odometer dropdown (whole km).
+    odoOptions: [10000, 25000, 50000, 75000, 100000, 150000, 200000, 250000, 300000],
     bodyTypes: ['sedan', 'hatchback', 'suv', 'ute', 'wagon', 'van', 'coupe', 'convertible'],
     showCondition: true,
     dimensions: [

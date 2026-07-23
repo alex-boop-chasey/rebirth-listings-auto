@@ -33,8 +33,16 @@ interface Props {
 }
 
 const { state, triggerId = 'filters-trigger' } = Astro.props;
-const { dimensions, bodyTypes, showCondition, defaultSort, priceCap } = dealerConfig.inventory;
+const { dimensions, bodyTypes, showCondition, defaultSort, priceOptions, yearOptions, odoOptions } =
+  dealerConfig.inventory;
+const { locale, currency } = dealerConfig.locale;
 const { sortLabels } = dealerConfig.copy;
+
+// Numeric-range dropdown options, formatted per the dealer's locale/currency.
+const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 });
+const priceOpts = priceOptions.map((n) => ({ value: String(n), label: priceFmt.format(n) }));
+const yearOpts = yearOptions.map((n) => ({ value: String(n), label: String(n) }));
+const odoOpts = odoOptions.map((n) => ({ value: String(n), label: `${n.toLocaleString(locale)} km` }));
 
 // Build the checkbox groups this dealer shows, in config order.
 const opt = (dim: string, codes: readonly (string | number)[]) =>
@@ -111,8 +119,22 @@ const textInput =
           <fieldset>
             <legend class={fieldLabel}>Price</legend>
             <div class="mt-2 grid grid-cols-2 gap-3">
-              <input type="number" inputmode="numeric" min="0" name="priceMin" placeholder="Min" value={state.priceMin ?? ''} aria-label="Minimum price" class={textInput} />
-              <input type="number" inputmode="numeric" min="0" max={priceCap} name="priceMax" placeholder="Max" value={state.priceMax ?? ''} aria-label="Maximum price" class={textInput} />
+              <select name="priceMin" aria-label="Minimum price" class={textInput}>
+                <option value="">Any</option>
+                {priceOpts.map((o) => (
+                  <option value={o.value} selected={String(state.priceMin) === o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <select name="priceMax" aria-label="Maximum price" class={textInput}>
+                <option value="">Any</option>
+                {priceOpts.map((o) => (
+                  <option value={o.value} selected={String(state.priceMax) === o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </fieldset>
         )
@@ -123,8 +145,22 @@ const textInput =
           <fieldset>
             <legend class={fieldLabel}>Year</legend>
             <div class="mt-2 grid grid-cols-2 gap-3">
-              <input type="number" inputmode="numeric" min="1900" name="yearMin" placeholder="From" value={state.yearMin ?? ''} aria-label="Earliest year" class={textInput} />
-              <input type="number" inputmode="numeric" min="1900" name="yearMax" placeholder="To" value={state.yearMax ?? ''} aria-label="Latest year" class={textInput} />
+              <select name="yearMin" aria-label="Earliest year" class={textInput}>
+                <option value="">Any</option>
+                {yearOpts.map((o) => (
+                  <option value={o.value} selected={String(state.yearMin) === o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <select name="yearMax" aria-label="Latest year" class={textInput}>
+                <option value="">Any</option>
+                {yearOpts.map((o) => (
+                  <option value={o.value} selected={String(state.yearMax) === o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </fieldset>
         )
@@ -135,7 +171,14 @@ const textInput =
           <fieldset>
             <legend class={fieldLabel}>Odometer</legend>
             <div class="mt-2">
-              <input type="number" inputmode="numeric" min="0" name="odoMax" placeholder="Max km" value={state.odoMax ?? ''} aria-label="Maximum odometer (km)" class={textInput} />
+              <select name="odoMax" aria-label="Maximum odometer (km)" class={textInput}>
+                <option value="">Any</option>
+                {odoOpts.map((o) => (
+                  <option value={o.value} selected={String(state.odoMax) === o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </fieldset>
         )
@@ -243,7 +286,13 @@ const textInput =
         .forEach((cb) => (cb.checked = vals.includes(cb.value)));
     }
     for (const name of RANGES) {
-      const el = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+      // `[name=...]` (not `input[name=...]`): these range fields are now <select>
+      // elements. Setting .value selects the matching <option>, or clears to "Any"
+      // when the URL value isn't one of the options.
+      const el = form.querySelector(`[name="${name}"]`) as
+        | HTMLInputElement
+        | HTMLSelectElement
+        | null;
       if (el) el.value = sp.get(name) ?? '';
     }
     const sortEl = form.querySelector('select[name="sort"]') as HTMLSelectElement | null;
