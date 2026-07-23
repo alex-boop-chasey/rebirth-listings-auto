@@ -138,6 +138,25 @@ irreversible or out-of-scope action the ticket didn't authorise, STOP and report
 improvising. A surfaced question is cheaper than an unwanted change. The planning Claude and the
 owner would rather you pause than guess.
 
+## Field notes (small operational patterns)
+
+These are patterns picked up during real work in this repo. Apply when the situation
+matches. New entries appended below over time — keep them terse (one to three lines each).
+Each entry heading carries the date it was added, so obsolete patterns can be pruned when
+tooling changes.
+
+### Splitting one file's changes across multiple commits (2026-07-24)
+When a single file has two logically distinct hunks that should land as separate
+commits, stage one hunk at a time with `git apply --cached` from a hand-crafted patch
+file rather than `git add -p` guesswork or lumping them together. Extract the hunk
+cleanly, stage it, commit, then stage the rest.
+
+### zsh throwaway scripts and $status (2026-07-24)
+`$status` is a read-only variable in zsh (unlike bash where it's a normal name).
+Assigning to it (e.g. `status=$?`) aborts the script and can leave temp files behind.
+Use a different name like `rc=$?` or `exit_code=$?`, or run throwaway scripts under
+`bash -c` explicitly.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build
