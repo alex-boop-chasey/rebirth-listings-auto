@@ -45,15 +45,15 @@ export const TIERS = {
     defaultTemperature: 0.7,
     defaultMaxTokens: 2048,
   },
-  // Anything needing reliable JSON output. Haiku primary for calibrated
-  // confidence on structured extraction: gemma-4-26b:free produced
-  // false-negative clarifying-question responses on unambiguous single-attribute
-  // queries (e.g. "Petrol" → low confidence + a needless clarifying question) —
-  // a model capability limit, not a prompt gap. gemma retained as a free
-  // fallback so a Haiku outage degrades gracefully rather than hard-erroring
-  // (different labs → uncorrelated failures).
+  // Anything needing reliable JSON output. gemma-4-26b:free is primary right now
+  // ONLY because OpenRouter has no credits for the paid tier — it is the only
+  // working option, so the user-facing AI bar actually returns extractions. Haiku
+  // is the INTENDED primary: it is better-calibrated on unambiguous
+  // single-attribute queries (e.g. "Petrol", where gemma tends to over-ask for
+  // clarification). Haiku is kept in the array as fallback so a future credit
+  // top-up is a one-line REORDER (put Haiku first), not a re-add.
   structured: {
-    models: ['anthropic/claude-haiku-4-5', 'google/gemma-4-26b-a4b-it:free'],
+    models: ['google/gemma-4-26b-a4b-it:free', 'anthropic/claude-haiku-4-5'],
     defaultTemperature: 0,
     defaultMaxTokens: 2048,
   },
