@@ -9,6 +9,26 @@ and stop for approval where instructed. This file is the standing context for ho
 the reasoning behind every major architectural decision. Do not reverse or undercut a decision
 recorded there; if a ticket appears to conflict with it, STOP and flag it.
 
+**For design-shaped work** (new surfaces, new features, or reshaping existing ones), also read
+`LENSES.md`. It holds the doctrinal thinking that shapes design judgment. Lenses are not
+constraints — they are ways of seeing that reveal implications a narrower view would miss. A
+proposal that appears to conflict with a lens is a legitimate design conversation, not a
+violation. For pure execution tickets (bug fixes, refactors, mechanical work), you don't need to
+read LENSES.md unless the ticket references it.
+
+## How the three project docs work together
+
+- **DECISION.md** — *why* things are the way they are. Architectural choices and their reasoning.
+  Read for intent. If a ticket seems to conflict with a decision here, STOP.
+- **AGENTS.md** (this file) — *what to do and not do* at the keyboard. Mechanical rules,
+  constraints, and operational patterns. This is the operating manual for every session.
+- **LENSES.md** — *how to think* about design questions. Durable ways of looking at the product
+  that shape judgment. Read when the ticket involves design decisions.
+
+Typical usage: **executing a ticket** → this file is the operating manual, DECISION.md is the
+tiebreaker when something seems off. **Planning a ticket** (planner role) → all three, weighted
+to the shape of the work.
+
 ## What the project is
 
 A commercial car-dealership listings website — the automotive vertical of what began as a
