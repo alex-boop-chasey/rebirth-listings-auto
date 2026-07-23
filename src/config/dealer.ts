@@ -73,6 +73,24 @@ export interface DealerConfig {
       maxQueryLength: number;
     };
   };
+  /**
+   * Hero AI search bar (Phase 3a) — dealer-scoped UI copy and typewriter timings.
+   * Distinct from `ai.search` above (which is the backend endpoint's flag/limits):
+   * this is purely the front-of-house presentation of the same feature.
+   */
+  aiSearch: {
+    /** Cycling typewriter placeholder examples — realistic shopper phrases.
+     *  Dealer-scoped: a luxury lot's examples differ from a used-car lot's. */
+    placeholders: readonly string[];
+    /** Copy on the subordinated link that opens the classic filter drawer. */
+    fallbackLinkLabel: string;
+    /** How long a fully-typed placeholder dwells before it starts deleting (ms). */
+    typewriterDwellMs: number;
+    /** Typing speed per character (ms). */
+    typewriterTypeMs: number;
+    /** Deleting speed per character (ms). */
+    typewriterDeleteMs: number;
+  };
 }
 
 // Sort options are a fixed whitelist (see src/lib/listings-query.ts for how each
@@ -164,6 +182,20 @@ export const dealerConfig: DealerConfig = {
       rateLimit: { windowSeconds: 3600, maxRequests: 10 },
       maxQueryLength: 500,
     },
+  },
+  aiSearch: {
+    // Bundaberg used-car lot — realistic plain-English examples.
+    placeholders: [
+      'Family SUV with 7 seats under $40,000',
+      'Reliable diesel ute for towing, low kms',
+      'First car for my daughter, automatic, under $15k',
+      'Something economical for the commute',
+      'Late-model hybrid with under 50,000 km',
+    ],
+    fallbackLinkLabel: 'Or refine manually',
+    typewriterDwellMs: 2000,
+    typewriterTypeMs: 40,
+    typewriterDeleteMs: 25,
   },
 };
 
