@@ -11,7 +11,8 @@
  *   2. Its window is hardcoded to the chatbot's global constant, but this
  *      feature's window is dealer-tunable (dealerConfig.ai.search.rateLimit).
  * So the algorithm is reused; only the window is parameterized. A distinct key
- * prefix (`ais:`) keeps the two counters from colliding.
+ * prefix (default `ais:`) keeps counters from colliding — callers on other
+ * endpoints pass their own prefix (e.g. the description generator uses `desc:`).
  *
  * The KV type is imported (not redefined) from the chatbot module.
  */
@@ -38,9 +39,10 @@ export async function checkSearchRateLimit(
   kv: KVNamespaceLike,
   ip: string,
   settings: RateLimitSettings,
+  keyPrefix = 'ais:',
 ): Promise<RateLimitResult> {
   const now = Math.floor(Date.now() / 1000);
-  const key = `ais:${ip}`;
+  const key = `${keyPrefix}${ip}`;
 
   let count = 0;
   let resetAt = now + settings.windowSeconds;
