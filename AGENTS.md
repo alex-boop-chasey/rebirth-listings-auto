@@ -157,6 +157,13 @@ Assigning to it (e.g. `status=$?`) aborts the script and can leave temp files be
 Use a different name like `rc=$?` or `exit_code=$?`, or run throwaway scripts under
 `bash -c` explicitly.
 
+### Shared rate-limiter naming (2026-07-24)
+`checkSearchRateLimit` (defined in `src/lib/ai-search/rate-limit.ts`) is now shared with
+`/api/generate-description` as well as `/api/search.ts`, via an optional `keyPrefix`
+parameter. The function name still says "Search" — candidate for a rename to
+`checkRateLimit` in a future refactor pass. Not urgent; flagged here so it doesn't get
+forgotten.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build
