@@ -10,11 +10,13 @@
  * "filters-trigger", wired through FilterDrawer's existing triggerId prop) —
  * is the interface. The drawer is not duplicated here.
  *
- * SCOPE (Phase 3a): the extracted filters are DISPLAYED ONLY, never APPLIED.
- * This bar does not touch the URL or the grid. Phase 3c wires filter
- * application; Phase 3b morphs this into the chat widget. The readback exists
- * purely to prove the pipeline end-to-end and to let us judge the typewriter
- * cadence and visual hierarchy in isolation.
+ * On a confident extraction the bar APPLIES the filters (Phase 3c) by driving
+ * the SAME URL contract the drawer uses: FilterState → serializeFilters →
+ * applyFilterUrl (the shared fetch-swap helper). The AI is not a parallel
+ * filtering system — it's another way to drive the one URL source of truth.
+ * The readback stays visible so users see what the AI understood. Phase 3b
+ * morphs this into the chat widget. Low-confidence extractions show a clarifying
+ * question and apply nothing; empty extractions never clear existing filters.
  *
  * Dealer-scoped copy and timings come from dealerConfig.aiSearch (Decision 1);
  * nothing here is hardcoded. Submit affordance is a labelled "Search" button
@@ -29,7 +31,7 @@ interface Props {
 }
 const { activeCount } = Astro.props;
 
-const { placeholders, fallbackLinkLabel, typewriterDwellMs, typewriterTypeMs, typewriterDeleteMs } =
+const { placeholders, fallbackLinkLabel, appliedLabel, typewriterDwellMs, typewriterTypeMs, typewriterDeleteMs } =
   dealerConfig.aiSearch;
 
 // Placeholders + timings travel to the inline script via data-* (the same
@@ -46,6 +48,7 @@ const timing = JSON.stringify({
   data-ai-search
   data-timing={timing}
   data-placeholders={JSON.stringify(placeholders)}
+  data-applied-label={appliedLabel}
   class="mx-auto max-w-2xl"
 >
   <!-- Hero input -->
@@ -94,12 +97,21 @@ const timing = JSON.stringify({
     </button>
   </div>
 
-  <!-- Readback (built by JS after submit). DISPLAY ONLY — never applied to the
-       URL or grid in Phase 3a (see header comment). -->
+  <!-- Readback (built by JS after submit): the AI's interpretation. On a
+       confident, non-empty extraction the filters are applied to the URL/grid
+       (Phase 3c); see the submit handler. -->
   <div data-ai-readback hidden aria-live="polite" class="mt-6"></div>
 </section>
 
 <script>
+  // Phase 3c: apply extracted filters via the SAME shared fetch-swap path the
+  // drawer uses (URL is the single source of truth — no parallel AI-filter
+  // system). serializeFilters/activeChips are the Phase 1 URL-contract helpers;
+  // the response's `filters` is already a FilterState (the endpoint ran
+  // toFilterState server-side), so the client only serializes it.
+  import { applyFilterUrl } from '../../lib/client/filter-url';
+  import { serializeFilters, activeChips } from '../../lib/listings-query';
+
   // Vanilla inline enhancement, matching CompareTray/FilterDrawer idiom. Wrapped
   // in an IIFE so early returns are legal in a module script.
   (() => {
@@ -114,6 +126,7 @@ const timing = JSON.stringify({
 
     const placeholders: string[] = JSON.parse(root.dataset.placeholders || '[]');
     const t = JSON.parse(root.dataset.timing || '{}') as { dwell: number; type: number; del: number };
+    const APPLIED_LABEL = root.dataset.appliedLabel || 'Applied to the grid below.';
 
     // --- Typewriter placeholder (setTimeout-based) --------------------------
     let phIndex = 0;
@@ -164,7 +177,7 @@ const timing = JSON.stringify({
     });
     tick(); // starts (input is empty + unfocused on load)
 
-    // --- Submit → POST /api/search → readback (DISPLAY ONLY) ----------------
+    // --- Submit → POST /api/search → readback + apply to URL/grid ----------
     const GENERIC_ERROR = "I couldn't understand that — try rephrasing, or use manual filters.";
     const RATE_ERROR = "You're doing that a lot — try again in a moment.";
     let seq = 0;
@@ -189,9 +202,19 @@ const timing = JSON.stringify({
         if (my !== seq) return;
         if (res.status === 429) return renderError(RATE_ERROR);
         if (!res.ok) return renderError(GENERIC_ERROR);
-        const data = await res.json();
+        const data: any = await res.json();
         if (my !== seq) return;
-        renderReadback(data);
+        // Apply the extraction to the URL/grid via the SAME shared path the
+        // drawer uses. The AI REPLACES any existing filters (a fresh statement of
+        // intent, not additive). Guards: only when confident AND at least one
+        // filter was actually extracted. An empty extraction at high confidence
+        // must NOT apply an empty URL — that would clear the user's existing
+        // filters (surprising), so we leave the URL/grid untouched. Low confidence
+        // never applies; the clarifying question is shown for the user to refine.
+        const filters = data?.filters || {};
+        const applied = data?.confidence !== 'low' && activeChips(filters).length > 0;
+        if (applied) applyFilterUrl('/?' + serializeFilters(filters));
+        renderReadback(data, applied);
       } catch {
         if (my === seq) renderError(GENERIC_ERROR);
       } finally {
@@ -280,7 +303,7 @@ const timing = JSON.stringify({
       return row;
     }
 
-    function renderReadback(data: any) {
+    function renderReadback(data: any, applied: boolean) {
       const card = el(
         'div',
         'space-y-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 text-left shadow-sm',
@@ -317,11 +340,15 @@ const timing = JSON.stringify({
         );
         const reasons: string[] = Array.isArray(data?.matchReasons) ? data.matchReasons : [];
         if (reasons.length) card.appendChild(labeledRow('Match reasons', chipRow(reasons)));
+        // Grid-application status (Phase 3c) — only meaningful in the filters branch.
+        card.appendChild(
+          el(
+            'p',
+            applied ? 'text-xs font-medium text-emerald-600' : 'text-xs text-slate-400',
+            applied ? APPLIED_LABEL : 'No specific filters to apply — showing the full range.',
+          ),
+        );
       }
-
-      card.appendChild(
-        el('p', 'text-xs text-slate-400', 'Preview only — these filters aren’t applied to the grid yet.'),
-      );
       show(card);
     }
   })();

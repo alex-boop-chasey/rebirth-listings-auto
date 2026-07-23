@@ -84,6 +84,8 @@ export interface DealerConfig {
     placeholders: readonly string[];
     /** Copy on the subordinated link that opens the classic filter drawer. */
     fallbackLinkLabel: string;
+    /** Copy shown under the readback once AI-extracted filters are applied to the grid. */
+    appliedLabel: string;
     /** How long a fully-typed placeholder dwells before it starts deleting (ms). */
     typewriterDwellMs: number;
     /** Typing speed per character (ms). */
@@ -193,6 +195,7 @@ export const dealerConfig: DealerConfig = {
       'Late-model hybrid with under 50,000 km',
     ],
     fallbackLinkLabel: 'Or refine manually',
+    appliedLabel: 'Applied to the grid below.',
     typewriterDwellMs: 2000,
     typewriterTypeMs: 40,
     typewriterDeleteMs: 25,
