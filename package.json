@@ -3,6 +3,7 @@
   "comment": "Pro/commercial demo, forked from astro-listings-demo.",
   "type": "module",
   "version": "0.0.1",
+  "packageManager": "npm@10.9.2",
   "engines": {
     "node": ">=22.12.0"
   },
