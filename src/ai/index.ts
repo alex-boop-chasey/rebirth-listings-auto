@@ -27,7 +27,7 @@ export {
 } from './types';
 
 // Tier configuration (read-only) and its type
-export { TIERS } from './tiers';
+export { TIERS, MODEL_CAPABILITIES, getModelCapabilities } from './tiers';
 export type { TierConfig } from './tiers';
 
 // Runtime configuration seam

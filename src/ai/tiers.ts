@@ -62,3 +62,20 @@ export const TIERS = {
     defaultMaxTokens: 2048,
   },
 } as const satisfies Record<Capability, TierConfig>;
+
+// Per-model capability metadata, keyed by OpenRouter model id. Kept as a parallel
+// map (NOT folded into TierConfig.models) so the tier table's shape and client.ts's
+// fallback loop are unchanged. Decision 3's provider layer stays purely additive.
+export const MODEL_CAPABILITIES = {
+  'google/gemma-4-26b-a4b-it:free': { supportsVision: true },
+  'anthropic/claude-haiku-4-5': { supportsVision: true },
+  'openai/gpt-oss-20b:free': { supportsVision: false },
+} as const satisfies Record<string, { supportsVision: boolean }>;
+
+/**
+ * Resolve a model id's capability flags. Unknown ids default to text-only
+ * (`supportsVision: false`) until a `MODEL_CAPABILITIES` entry proves otherwise.
+ */
+export function getModelCapabilities(modelId: string): { supportsVision: boolean } {
+  return MODEL_CAPABILITIES[modelId as keyof typeof MODEL_CAPABILITIES] ?? { supportsVision: false };
+}
