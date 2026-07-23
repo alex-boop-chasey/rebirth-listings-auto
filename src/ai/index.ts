@@ -9,6 +9,9 @@
 export type {
   Capability,
   AIMessage,
+  AIContentPart,
+  AITextPart,
+  AIImagePart,
   AIRequest,
   AIResponse,
   AIStreamChunk,

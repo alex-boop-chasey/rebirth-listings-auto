@@ -21,10 +21,33 @@
  */
 export type Capability = 'chat-cheap' | 'chat-quality' | 'writing' | 'structured';
 
+/**
+ * A single part of a multimodal message. `text` carries prose; `image_url`
+ * carries an image reference in the OpenRouter/OpenAI-compatible shape. A message
+ * whose `content` is a plain string is equivalent to a single text part — the
+ * common case shared by every existing caller.
+ */
+export interface AITextPart {
+  type: 'text';
+  text: string;
+}
+export interface AIImagePart {
+  type: 'image_url';
+  image_url: { url: string };
+}
+export type AIContentPart = AITextPart | AIImagePart;
+
 /** One turn in a conversation, in the layer's internal provider-agnostic format. */
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  /**
+   * Message body. A plain string is the common single-text case; an array of
+   * parts enables multimodal input (text + images) for vision-capable models.
+   * The OpenRouter adapter forwards this shape verbatim (`buildBody` sends
+   * `messages` as-is), so an array flows straight through to the provider —
+   * no adapter or fallback-loop change is needed to carry images.
+   */
+  content: string | AIContentPart[];
 }
 
 /** A request into the layer. The `capability` selects the tier (and thus the model list). */
