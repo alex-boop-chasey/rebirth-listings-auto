@@ -7,8 +7,8 @@ without needing to read the code. Any future collaborator, security reviewer, or
 read this first to understand not just *what* was decided but *why*, so decisions don't get
 silently reversed by someone who doesn't know the reasoning.
 
-Keep this updated. When a major decision is made or changed, record it here with its reasoning and
-the date.
+When a major decision is made or changed, record it here with its reasoning and
+the date: /Users/alex/components/rebirth-listings-auto/docs/log.txt
 
 ---
 
@@ -146,13 +146,39 @@ we did NOT build the full multi-tenant platform now — see Decision 1).
 ## Working method (how this project is built)
 
 - **The owner** is the ideas/business person, not a coder. They make the high-level business-shaped
-  decisions; they do not read or write code.
-- **The planning AI** (in the Claude.ai project) turns those decisions into architecture and into
-  detailed tickets, in plain language for the owner and precise instructions for the coding agent.
-- **Claude Code (the coding agent)** executes the tickets in the repo.
+  decisions; they do not read or write code. **The owner signs off on every major decision** — no
+  significant architectural choice, contest outcome, or irreversible step proceeds without it.
+- **The planning & orchestration agent** (you, the main chat agent in the Claude Code CLI) turns the
+  owner's decisions into architecture and into a plan for the next phase of each build, then
+  **delegates the actual coding to sub-agents running in the background** rather than writing all the
+  code itself. It reviews what the sub-agents produce, integrates it, decides contest outcomes, and
+  brings every major decision back to the owner for sign-off.
+- **Claude Code CLI sub-agents (the coding agents)** do the actual coding in the repo, in the
+  background, under the main session's direction — spawned per task with precise scope, reporting back
+  for review and integration.
 - **Guardrails:** two-phase tickets (investigate/propose, then execute) with owner approval before
   anything irreversible; dry-runs before data writes; delete by explicit ID, never broad matches;
   determinism over guessing.
+
+### The solution contest (a 3-agent tournament, run on request)
+
+Occasionally the owner asks for a **contest** on a hard or open-ended problem. The main session runs
+exactly **three sub-agents in sequence** — never in parallel, never scaled up (sequential
+divergence-under-constraint works at three and breaks past that):
+
+1. **Agent 1 — first proposal.** Proposes a solution and writes the code for it, compiling/running it
+   to prove it works. It finishes completely before anything else starts.
+2. **Agent 2 — a deliberately different proposal.** Only after Agent 1 has finished, Agent 2 is briefed
+   on Agent 1's result and asked to propose and build a **genuinely different** solution — a different
+   approach, not a variation of the first.
+3. **Agent 3 — the critic.** Only after Agent 2 has finished, Agent 3 pokes holes in **both**
+   proposals — weaknesses, risks, edge cases, trade-offs — and writes a report. It proposes nothing of
+   its own.
+
+Then **the main session decides.** Using the plans, code, and critique from all three, it picks the
+best solution — which may be one proposal whole, or the best parts of each combined — and **presents
+that recommendation to the owner for sign-off before it is implemented.** The sequence is gated: each
+step waits for the previous one to finish, so later agents can react to what came before.
 
 Because the owner cannot personally review the code, correctness is protected by structure
 (enforced guardrails, automated tests) and, for anything holding real dealer/customer data at
