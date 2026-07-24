@@ -12,6 +12,10 @@
  * Consumed via the `~/config/dealer` alias (`~/*` → `src/*`).
  */
 
+// Type-only import (zero runtime cost, no import cycle — context.ts has no deps)
+// so the config's `allowedKinds` stays in lockstep with the seam it configures.
+import type { ConversationContextKind } from '../chatbot/context';
+
 // A single dealer's configuration. When we go multi-tenant this becomes the
 // per-tenant record shape; the resolver just picks which one is "current".
 export interface DealerConfig {
@@ -142,6 +146,23 @@ export interface DealerConfig {
         familySeats: readonly number[];
       };
     };
+    /**
+     * Conversation priming/context seam (the "Ask about this car" button and,
+     * later, compare/search entry points). When a visitor opens Rebi from a
+     * specific surface, the widget sends `{ kind, refs }` and the server resolves
+     * a live CONVERSATION FOCUS block. Deterministic + fail-open, and decoupled
+     * from `grounding.enabled` above. Every knob here is dealer-tunable.
+     */
+    context: {
+      /** Master on/off. When false, any sent context is ignored (no priming). */
+      enabled: boolean;
+      /** Which context kinds this dealer accepts. v1 wires only `listing`. */
+      allowedKinds: readonly ConversationContextKind[];
+      /** Hard cap on refs a single context may carry (bounds the focus fetch). */
+      maxRefs: number;
+      /** KV TTL (seconds) for a resolved focus block. Ignored if no KV bound. */
+      cacheTtlSeconds: number;
+    };
   };
 }
 
@@ -270,6 +291,12 @@ export const dealerConfig: DealerConfig = {
         lowKmThreshold: 60000,
         familySeats: [7, 8],
       },
+    },
+    context: {
+      enabled: true,
+      allowedKinds: ['listing'],
+      maxRefs: 4,
+      cacheTtlSeconds: 120, // a focused vehicle's price/status shifts slowly
     },
   },
 };

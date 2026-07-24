@@ -463,6 +463,9 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
   if (root && launcher && panel && closeBtn && log && form && input && sendBtn) {
     const STORAGE_KEY = 'reb-chat-history';
     const SESSION_KEY = 'reb-session-id';
+    // Per-tab priming context (e.g. "Ask about this car"). Mirrored to
+    // sessionStorage so a reopen/rehydrate in the same tab keeps the focus.
+    const CONTEXT_KEY = 'reb-active-context';
 
     const POLL_MS = Number(root.dataset.pollInterval) || 3000;
     const ESC_TIMEOUT_MS = Number(root.dataset.escalationTimeout) || 300000;
@@ -471,6 +474,11 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     const IS_LOCALHOST = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
     const TURNSTILE_KEY = IS_LOCALHOST ? '' : (root.dataset.turnstileKey || '');
     const USE_STREAM = root.dataset.stream === 'true';
+
+    // Active priming context. `refs` + `kind` are sent to the server each turn;
+    // `opening` is the client-only primed greeting (never sent — no injection).
+    type ActiveContext = { kind: string; refs: string[]; opening: string };
+    let activeContext: ActiveContext | null = null;
 
     let history: Msg[] = [];
     let busy = false;
@@ -496,6 +504,32 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
 
     let sessionId: string | null = null;
     try { sessionId = localStorage.getItem(SESSION_KEY); } catch { /* ignore */ }
+
+    try {
+      const savedCtx = sessionStorage.getItem(CONTEXT_KEY);
+      if (savedCtx) {
+        const parsed = JSON.parse(savedCtx);
+        if (parsed && typeof parsed.opening === 'string' && Array.isArray(parsed.refs)) {
+          activeContext = parsed;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // The greeting shown at the top of the log: the primed opening when a context
+    // is active, otherwise Rebi's default greeting. Naming the car only (no price)
+    // avoids contradicting live figures the server will supply on the first reply.
+    const currentGreeting = () => activeContext?.opening || GREETING;
+
+    const buildOpening = (title: string) =>
+      title
+        ? `Happy to help with the ${title} — want to know about its price, kilometres, features, or booking a look?`
+        : 'Happy to help with this vehicle — want to know about its price, kilometres, features, or booking a look?';
+
+    const setActiveContext = (kind: string, ref: string, title: string) => {
+      if (!ref) return;
+      activeContext = { kind: kind || 'listing', refs: [ref], opening: buildOpening(title) };
+      try { sessionStorage.setItem(CONTEXT_KEY, JSON.stringify(activeContext)); } catch { /* ignore */ }
+    };
 
     const save = () => {
       try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch { /* ignore */ }
@@ -622,10 +656,12 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     const renderHistory = () => {
       log.innerHTML = '';
       lastTs = 0;
-      // Always render the greeting — the log was just cleared, so it can't
-      // duplicate, and gating on a "greeted" flag left the panel blank on any
-      // reopen with empty history (e.g. after end-chat reset while minimised).
-      addBubble('assistant', format(GREETING), history[0]?.ts);
+      // Always render exactly ONE greeting — the log was just cleared, so it
+      // can't duplicate, and gating on a "greeted" flag left the panel blank on
+      // any reopen with empty history (e.g. after end-chat reset while
+      // minimised). When a context is active this is the primed opening, which
+      // REPLACES the default greeting (never stacks a second bubble on top).
+      addBubble('assistant', format(currentGreeting()), history[0]?.ts);
       for (const m of history) addBubble(m.role, format(m.content), m.ts);
     };
 
@@ -634,7 +670,9 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       log.innerHTML = '';
       lastTs = 0;
       seen.clear();
-      addBubble('assistant', format(GREETING));
+      // Same single-greeting rule as renderHistory: the primed opening replaces
+      // the default greeting so a rehydrate never doubles it.
+      addBubble('assistant', format(currentGreeting()));
       for (const m of messages) {
         addBubble(serverRole(m.role), format(m.content));
         seen.add(m.id);
@@ -788,6 +826,10 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       stopPolling();
       try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
       try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      // Clear the priming context too — a fresh chat is unprimed, so the next
+      // plain launcher open is byte-identical to today (default greeting, no focus).
+      try { sessionStorage.removeItem(CONTEXT_KEY); } catch { /* ignore */ }
+      activeContext = null;
       sessionId = null;
       history = [];
       status = 'ai_active';
@@ -878,6 +920,9 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
       if (sessionId) p.sessionId = sessionId;
       // Turnstile token only matters on the very first message.
       if (TURNSTILE_KEY && !sessionId) p.turnstileToken = getTurnstileToken();
+      // Re-send the priming context each turn (server resolves it live). Only
+      // `{ kind, refs }` — the opening greeting stays client-side.
+      if (activeContext) p.context = { kind: activeContext.kind, refs: activeContext.refs };
       return p;
     };
 
@@ -1109,6 +1154,28 @@ const turnstileSiteKey = turnstileEnabled ? TURNSTILE_SITE_KEY : '';
     launcher.addEventListener('click', toggle);
     closeBtn.addEventListener('click', openConfirm); // X → confirm end-chat (minimise is the chevron)
     minimiseBtn?.addEventListener('click', closePanel);
+
+    // Delegated listener for priming triggers anywhere on the page (e.g. the
+    // per-listing "Ask about this car" button). Same precedent as ContactModal /
+    // CompareTray: the wiring lives here, the trigger is just declarative markup
+    // (`data-rebi-open data-rebi-kind data-rebi-ref data-rebi-title`). Sets the
+    // active context and opens the panel with the primed greeting.
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      const trigger = target?.closest?.('[data-rebi-open]') as HTMLElement | null;
+      if (!trigger) return;
+      e.preventDefault();
+      const kind = trigger.getAttribute('data-rebi-kind') || 'listing';
+      const ref = trigger.getAttribute('data-rebi-ref') || '';
+      const title = trigger.getAttribute('data-rebi-title') || '';
+      if (!ref) return;
+      setActiveContext(kind, ref, title);
+      if (panel.hidden) {
+        openPanel(); // renders the primed greeting via currentGreeting()
+      } else {
+        renderHistory(); // already open — refresh so the primed greeting shows
+      }
+    });
 
     confirmX?.addEventListener('click', () => closeConfirm());
     confirmEl?.addEventListener('click', (e) => {

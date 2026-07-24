@@ -16,6 +16,8 @@
 
 import { buildSystemPrompt } from './system-prompt';
 import { buildGroundedSystemPrompt } from './grounding';
+import { parseContext, type ConversationContext } from './context';
+import { getDealerConfig } from '../config/dealer';
 import {
   TEMPERATURE,
   MAX_TOKENS,
@@ -492,6 +494,12 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
     turnstileToken?: unknown;
     contact?: unknown;
     stream?: unknown;
+    /**
+     * Optional conversation-priming context (e.g. "Ask about this car"). Carries
+     * only `{ kind, refs }` — never any free text, so it can't inject the prompt.
+     * Validated by `parseContext`; anything unusable → no priming (fail-open).
+     */
+    context?: unknown;
   };
   try {
     body = await request.json();
@@ -614,9 +622,23 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
   // (deterministic, NO extra LLM call). ANY failure falls back to the static
   // `systemMessage` (today's prompt with knowledge.ts). Built ONCE here so the
   // JSON and streaming paths below consume the identical enriched `messages`.
+  // Validate any priming context off the wire (whitelist kind, cap refs). Done
+  // HERE — past the escalated/human-active + contact-only early-returns — so a
+  // primed focus can never be resolved or injected during a live handoff.
+  let context: ConversationContext | null = null;
+  try {
+    const ctxCfg = getDealerConfig().chat.context;
+    context = parseContext(body.context, {
+      allowedKinds: ctxCfg.allowedKinds,
+      maxRefs: ctxCfg.maxRefs,
+    });
+  } catch (err) {
+    console.error('[chatbot] Context parse failed (continuing unprimed)', err);
+  }
+
   let groundedSystemMessage = systemMessage;
   try {
-    const grounded = await buildGroundedSystemPrompt(env.GROUNDING_KV, latestUserMessage.content);
+    const grounded = await buildGroundedSystemPrompt(env.GROUNDING_KV, latestUserMessage.content, context);
     if (grounded) groundedSystemMessage = { role: 'system' as const, content: grounded };
   } catch (err) {
     console.error('[chatbot] Grounding failed (using static prompt)', err);

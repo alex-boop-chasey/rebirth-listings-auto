@@ -17,14 +17,34 @@ import { getDealerConfig } from '../../config/dealer';
 import { getBusinessFacts } from './business-facts';
 import { getInventoryOverview } from './overview';
 import { getLiveMatches } from './lookup';
+import { resolveFocus } from './context';
 import type { KVNamespaceLike } from '../core';
+import type { ConversationContext } from '../context';
 
 export async function buildGroundedSystemPrompt(
   kv: KVNamespaceLike | undefined,
   userMessage: string,
+  context?: ConversationContext | null,
 ): Promise<string | null> {
-  const cfg = getDealerConfig().chat.grounding;
-  if (!cfg.enabled) return null;
+  const cfg = getDealerConfig().chat;
+
+  // Conversation focus is resolved INDEPENDENTLY of inventory grounding: a chat
+  // primed from a listing should still be grounded on that vehicle even if the
+  // dealer has broad inventory grounding turned off. Fail-open (null on miss).
+  let focus: string | null = null;
+  if (cfg.context.enabled && context) {
+    focus = await resolveFocus(kv, context);
+  }
+
+  // Inventory grounding off: fall through to the static prompt, UNLESS a focus
+  // was resolved — then produce a focus-only prompt (today's static base + the
+  // primed vehicle). Returning null here would suppress priming (the bug the
+  // critic flagged), so we key that decision on `focus`, not on grounding.
+  if (!cfg.grounding.enabled) {
+    return focus ? buildSystemPrompt({ focus }) : null;
+  }
+
+  const g = cfg.grounding;
 
   // Business facts always resolve to a usable string (doc → render, else static).
   const businessFacts = await getBusinessFacts(kv);
@@ -34,10 +54,10 @@ export async function buildGroundedSystemPrompt(
   let overview: string | null = null;
   let matches: string | null = null;
 
-  if (cfg.overview.enabled) {
+  if (g.overview.enabled) {
     overview = await getInventoryOverview(kv);
   }
-  if (cfg.lookup.enabled) {
+  if (g.lookup.enabled) {
     matches = await getLiveMatches(kv, userMessage);
   }
 
@@ -45,5 +65,5 @@ export async function buildGroundedSystemPrompt(
   // came back null (fetch errors), the prompt shows the degraded sentinel.
   const available = overview !== null || matches !== null;
 
-  return buildSystemPrompt({ businessFacts, overview, matches, available });
+  return buildSystemPrompt({ businessFacts, overview, matches, available, focus });
 }

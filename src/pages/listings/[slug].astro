@@ -230,6 +230,17 @@ const canonicalURL = new URL(
                 <span id="save-icon" class="inline-flex"><Fragment set:html={iconSvg('heart', 'h-4 w-4')} /></span>
                 <span id="save-label">Save Listing</span>
               </button>
+              <button
+                type="button"
+                data-rebi-open
+                data-rebi-kind="listing"
+                data-rebi-ref={listing._id}
+                data-rebi-title={listing.title}
+                class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
+              >
+                <Fragment set:html={iconSvg('car', 'h-4 w-4')} />
+                Ask about this car
+              </button>
             </div>
           </div>
         </div>
