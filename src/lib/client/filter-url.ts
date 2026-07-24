@@ -1,18 +1,17 @@
 /**
  * Shared client-side filter-URL driver.
  *
- * The URL is the single source of truth (DECISION.md Decision 5). Both the
- * classic filter drawer and the AI search bar drive the SAME flow: build a URL
- * → pushState → fetch the /partials/inventory fragment → swap #inventory-results
- * → refresh the active-filter badge. Extracted into one module so there is
- * exactly one fetch-swap code path (no parallel AI-filtering system) and one
- * in-flight counter shared across both surfaces.
+ * The URL is the single source of truth (DECISION.md Decision 5). The classic
+ * filter drawer drives this flow: build a URL → pushState → fetch the
+ * /partials/inventory fragment → swap #inventory-results → refresh the
+ * active-filter badge. Extracted into one module so there is exactly one
+ * fetch-swap code path and one shared in-flight counter — ready to be reused by
+ * any future surface that drives the same filter URL.
  *
- * Imported by the inline <script> of FilterDrawer.astro and AiSearchBar.astro.
- * In dev (ESM by URL) and prod (a shared Vite chunk) this resolves to a single
- * module instance, so `seq` is shared. The popstate listener is additionally
- * guarded by a window flag so it binds exactly once even if bundling ever
- * duplicates the module.
+ * Imported by the inline <script> of FilterDrawer.astro. In dev (ESM by URL) and
+ * prod (a shared Vite chunk) this resolves to a single module instance, so `seq`
+ * is shared. The popstate listener is additionally guarded by a window flag so it
+ * binds exactly once even if bundling ever duplicates the module.
  */
 
 // In-flight request counter — a newer apply supersedes an older one so a slow

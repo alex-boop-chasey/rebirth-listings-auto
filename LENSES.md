@@ -25,8 +25,10 @@ complement, not as the primary affordance.
 This lens applies to both public-facing (shopper) and dealer-facing (Studio) surfaces. It has
 already shaped:
 
-- The hero AI search bar as the primary shopper affordance, with "Or refine manually" as a
-  subordinated fallback link to the classic filter drawer.
+- The classic filter drawer as the manual shopper fallback, with the AI-first way to search being
+  built directly into Rebi as a "search intent" entry point (describe the car you want in plain
+  English) rather than a separate hero search bar — an earlier standalone hero AI search bar was
+  tried and removed in favour of concentrating the shopper conversation in one surface.
 - The AI-generated listing description button as the primary dealer copy-writing affordance,
   with manual editing preserved as fallback.
 - The plan to promote Rebi (currently a demo-stub floating chatbot) into the primary shopper

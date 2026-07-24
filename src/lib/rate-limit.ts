@@ -1,22 +1,20 @@
 /**
- * Per-IP fixed-window rate limiter for the AI-search endpoint.
+ * Per-IP fixed-window rate limiter (shared infrastructure).
  *
  * This deliberately mirrors the chatbot's KV limiter (`checkLimit` in
  * src/chatbot/core.ts): the SAME fixed-window scheme, the SAME `{ c, r }` JSON
  * storage shape, the SAME fail-open contract, and a 429 + Retry-After on block.
  *
- * Why a small replica instead of importing that helper:
- *   1. It lives in src/chatbot/, which this ticket must leave alone, and it is
- *      module-private (not exported).
- *   2. Its window is hardcoded to the chatbot's global constant, but this
- *      feature's window is dealer-tunable (dealerConfig.ai.search.rateLimit).
- * So the algorithm is reused; only the window is parameterized. A distinct key
- * prefix (default `ais:`) keeps counters from colliding — callers on other
- * endpoints pass their own prefix (e.g. the description generator uses `desc:`).
+ * Why a small replica instead of importing that helper: the chatbot's version
+ * lives in src/chatbot/ (left alone by convention) and is module-private, and its
+ * window is hardcoded to the chatbot's global constant whereas callers here pass a
+ * dealer-tunable window. So the algorithm is reused; only the window is
+ * parameterized. A distinct key prefix keeps counters from colliding — each caller
+ * passes its own (e.g. the description generator uses `desc:`).
  *
  * The KV type is imported (not redefined) from the chatbot module.
  */
-import type { KVNamespaceLike } from '../../chatbot/core';
+import type { KVNamespaceLike } from '~/chatbot/core';
 
 export interface RateLimitSettings {
   windowSeconds: number;
@@ -35,11 +33,11 @@ export interface RateLimitResult {
  * atomic increment, so a burst can leak a couple of extra requests — acceptable,
  * same as the chatbot.
  */
-export async function checkSearchRateLimit(
+export async function checkRateLimit(
   kv: KVNamespaceLike,
   ip: string,
   settings: RateLimitSettings,
-  keyPrefix = 'ais:',
+  keyPrefix = 'rl:',
 ): Promise<RateLimitResult> {
   const now = Math.floor(Date.now() / 1000);
   const key = `${keyPrefix}${ip}`;

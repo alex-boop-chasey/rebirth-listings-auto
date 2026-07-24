@@ -192,11 +192,12 @@ then stage the rest.
 it (e.g. `status=$?`) aborts the script and can leave temp files behind. Use a different name
 like `rc=$?` or `exit_code=$?`, or run throwaway scripts under `bash -c` explicitly.
 
-### Shared rate-limiter naming (2026-07-24)
-`checkSearchRateLimit` (defined in `src/lib/ai-search/rate-limit.ts`) is now shared with
-`/api/generate-description` as well as `/api/search.ts`, via an optional `keyPrefix` parameter.
-The function name still says "Search" — candidate for a rename to `checkRateLimit` in a future
-refactor pass. Not urgent; flagged here so it doesn't get forgotten.
+### Shared rate-limiter (2026-07-24)
+`checkRateLimit` (defined in `src/lib/rate-limit.ts`) is the per-IP fixed-window KV limiter used by
+`/api/generate-description`, via an optional `keyPrefix` parameter (it passes `'desc:'`). It began
+life as `checkSearchRateLimit` in `src/lib/ai-search/rate-limit.ts`; when the AI search bar was
+removed, the limiter was relocated to the neutral `src/lib/` home and renamed. Reuse it for any new
+endpoint that needs per-IP throttling — pass a distinct `keyPrefix` so counters don't collide.
 
 ## Documentation
 

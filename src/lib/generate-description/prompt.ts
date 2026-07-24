@@ -1,12 +1,11 @@
 /**
  * Prompt composition for the AI listing-description generator.
  *
- * Feature: Sanity Studio "Generate description" button. Unlike the search
- * extractor (structured JSON), this produces PROSE via the `writing` tier, and
- * must ground every claim strictly in the provided facts. SPECS and DEALER NOTES
- * are wrapped as untrusted DATA — same injection-hardening discipline as
- * src/lib/ai-search/prompt.ts. Dealer name/tone/locale come from dealerConfig
- * (Decision 1); this module never hardcodes them.
+ * Feature: Sanity Studio "Generate description" button. This produces PROSE via
+ * the `writing` tier, and must ground every claim strictly in the provided facts.
+ * SPECS and DEALER NOTES are wrapped as untrusted DATA (injection-hardening
+ * discipline). Dealer name/tone/locale come from dealerConfig (Decision 1); this
+ * module never hardcodes them.
  */
 import type { DescriptionTone } from '../../config/dealer';
 

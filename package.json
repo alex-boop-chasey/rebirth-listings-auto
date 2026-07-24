@@ -17,8 +17,7 @@
     "import:bundaberg": "tsx scripts/import-bundaberg.ts",
     "import:migrate-specs": "tsx scripts/migrate-details-to-specs.ts",
     "generate-types": "wrangler types",
-    "check:ai-imports": "bash scripts/check-ai-imports.sh",
-    "test:ai-search": "node --import tsx --test src/lib/ai-search/schema.test.ts"
+    "check:ai-imports": "bash scripts/check-ai-imports.sh"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.1.3",

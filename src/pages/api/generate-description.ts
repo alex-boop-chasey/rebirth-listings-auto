@@ -9,10 +9,10 @@
  * writing model supports vision AND the listing has photos, the photos are sent
  * as image parts; otherwise text-only.
  *
- * Mirrors /api/search.ts discipline: feature flag → cheap body validation →
- * per-IP KV rate limit (fail OPEN) → graceful degradation, never a 500 for AI
- * failure. Dealer-scoped values (enabled flag, rate limit, Studio origins, tone,
- * locale, name) all come from dealerConfig — nothing hardcoded here.
+ * Discipline: feature flag → cheap body validation → per-IP KV rate limit
+ * (fail OPEN) → graceful degradation, never a 500 for AI failure. Dealer-scoped
+ * values (enabled flag, rate limit, Studio origins, tone, locale, name) all come
+ * from dealerConfig — nothing hardcoded here.
  */
 import type { APIRoute } from 'astro';
 import { configureAI, generate, TIERS, getModelCapabilities } from '~/ai';
@@ -23,7 +23,7 @@ import { getDescriptionEnv } from '~/lib/generate-description/env';
 import { fetchDraftListing } from '~/lib/generate-description/sanity-draft';
 import { buildSystemPrompt, buildUserText, type DescriptionFacts } from '~/lib/generate-description/prompt';
 import { plainTextToPortableText } from '~/lib/portable-text';
-import { checkSearchRateLimit } from '~/lib/ai-search/rate-limit';
+import { checkRateLimit } from '~/lib/rate-limit';
 import { urlFor } from '~/sanity/lib/image';
 
 export const prerender = false; // dynamic route, not pre-rendered
@@ -68,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   if (env.RATE_LIMIT_KV) {
     try {
-      const rl = await checkSearchRateLimit(env.RATE_LIMIT_KV, ip, cfg.rateLimit, 'desc:');
+      const rl = await checkRateLimit(env.RATE_LIMIT_KV, ip, cfg.rateLimit, 'desc:');
       if (!rl.allowed) {
         return json({ error: 'Generation limit reached — please try again later.' }, 429, {
           'Retry-After': String(rl.retryAfterSeconds),

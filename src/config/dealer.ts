@@ -59,19 +59,9 @@ export interface DealerConfig {
   /**
    * AI-feature settings — dealer-scoped toggles and limits only. The model
    * choice is owned centrally by src/ai/ capability tiers (DECISION.md
-   * Decision 3) and the prompts are feature-scoped (src/lib/ai-search/); neither
-   * belongs here.
+   * Decision 3) and the prompts are feature-scoped; neither belongs here.
    */
   ai: {
-    /** Natural-language inventory search (Phase 2 extraction core onward). */
-    search: {
-      /** Master on/off — lets a dealer disable AI search without a deploy. */
-      enabled: boolean;
-      /** Per-IP rate limit for the search endpoint. Defaults mirror the chatbot. */
-      rateLimit: { windowSeconds: number; maxRequests: number };
-      /** Max accepted query length (chars); longer requests are rejected pre-AI. */
-      maxQueryLength: number;
-    };
     /**
      * Voice/tone knobs read by the description generator prompt.
      * Multi-tenant seam: today one dealer; later keyed by tenant so each
@@ -97,26 +87,6 @@ export interface DealerConfig {
       /** Per-IP rate limit for the generate-description endpoint. */
       rateLimit: { windowSeconds: number; maxRequests: number };
     };
-  };
-  /**
-   * Hero AI search bar (Phase 3a) — dealer-scoped UI copy and typewriter timings.
-   * Distinct from `ai.search` above (which is the backend endpoint's flag/limits):
-   * this is purely the front-of-house presentation of the same feature.
-   */
-  aiSearch: {
-    /** Cycling typewriter placeholder examples — realistic shopper phrases.
-     *  Dealer-scoped: a luxury lot's examples differ from a used-car lot's. */
-    placeholders: readonly string[];
-    /** Copy on the subordinated link that opens the classic filter drawer. */
-    fallbackLinkLabel: string;
-    /** Copy shown under the readback once AI-extracted filters are applied to the grid. */
-    appliedLabel: string;
-    /** How long a fully-typed placeholder dwells before it starts deleting (ms). */
-    typewriterDwellMs: number;
-    /** Typing speed per character (ms). */
-    typewriterTypeMs: number;
-    /** Deleting speed per character (ms). */
-    typewriterDeleteMs: number;
   };
 }
 
@@ -210,12 +180,6 @@ export const dealerConfig: DealerConfig = {
     },
   },
   ai: {
-    search: {
-      enabled: true,
-      // Defaults mirror the chatbot's limiter (RATE_LIMIT_MAX / _WINDOW_SECONDS).
-      rateLimit: { windowSeconds: 3600, maxRequests: 10 },
-      maxQueryLength: 500,
-    },
     descriptionVoice: {
       tone: 'confident-professional',
       locale: 'en-AU',
@@ -230,21 +194,6 @@ export const dealerConfig: DealerConfig = {
       // per-IP to bound AI cost. 20/hour is generous for a dealer editing listings.
       rateLimit: { windowSeconds: 3600, maxRequests: 20 },
     },
-  },
-  aiSearch: {
-    // Bundaberg used-car lot — realistic plain-English examples.
-    placeholders: [
-      'Family SUV with 7 seats under $40,000',
-      'Reliable diesel ute for towing, low kms',
-      'First car for my daughter, automatic, under $15k',
-      'Something economical for the commute',
-      'Late-model hybrid with under 50,000 km',
-    ],
-    fallbackLinkLabel: 'Or refine manually',
-    appliedLabel: 'Applied to the grid below.',
-    typewriterDwellMs: 2000,
-    typewriterTypeMs: 40,
-    typewriterDeleteMs: 25,
   },
 };
 
