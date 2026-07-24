@@ -21,6 +21,9 @@ export function getChatEnv(): ChatEnv {
     OPENROUTER_API_KEY:
       (e.OPENROUTER_API_KEY as string | undefined) ?? import.meta.env.OPENROUTER_API_KEY,
     RATE_LIMIT_KV: e.RATE_LIMIT_KV as ChatEnv['RATE_LIMIT_KV'],
+    // Optional grounding cache. Undefined until the owner binds a KV namespace
+    // named GROUNDING_KV in wrangler.jsonc — grounding reads live without it.
+    GROUNDING_KV: e.GROUNDING_KV as ChatEnv['GROUNDING_KV'],
     CHAT_DB: e.CHAT_DB as ChatEnv['CHAT_DB'],
     TELEGRAM_BOT_TOKEN:
       (e.TELEGRAM_BOT_TOKEN as string | undefined) ?? import.meta.env.TELEGRAM_BOT_TOKEN,

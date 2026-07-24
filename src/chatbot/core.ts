@@ -15,6 +15,7 @@
  */
 
 import { buildSystemPrompt } from './system-prompt';
+import { buildGroundedSystemPrompt } from './grounding';
 import {
   TEMPERATURE,
   MAX_TOKENS,
@@ -59,6 +60,15 @@ export interface ChatEnv {
    * (e.g. local dev without KV), rate limiting is skipped and requests pass.
    */
   RATE_LIMIT_KV?: KVNamespaceLike;
+  /**
+   * Cloudflare KV namespace for caching the chatbot's live grounding blocks
+   * (business facts, inventory overview, per-query lookups). Fully OPTIONAL and
+   * fail-open: if unbound (the default today), every grounding block is read
+   * live from Sanity each turn — nothing breaks. To enable caching, the owner
+   * adds a KV namespace + a `GROUNDING_KV` binding in wrangler.jsonc (owner-gated
+   * scope) and surfaces it in get-env.ts; no code change here is needed.
+   */
+  GROUNDING_KV?: KVNamespaceLike;
   /**
    * Cloudflare D1 database for persistent conversation memory. Optional — if
    * unbound (e.g. local dev without D1), all persistence is skipped and the
@@ -597,6 +607,21 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
     }
   }
 
+  // --- Live grounding (additive, fail-open) ---
+  // Only past the human-handoff early-return above and only on the AI-reply path,
+  // so grounding never runs on handoff/contact-only/both-failed turns. Enrich the
+  // system message with live inventory + the dealer's business-facts document
+  // (deterministic, NO extra LLM call). ANY failure falls back to the static
+  // `systemMessage` (today's prompt with knowledge.ts). Built ONCE here so the
+  // JSON and streaming paths below consume the identical enriched `messages`.
+  let groundedSystemMessage = systemMessage;
+  try {
+    const grounded = await buildGroundedSystemPrompt(env.GROUNDING_KV, latestUserMessage.content);
+    if (grounded) groundedSystemMessage = { role: 'system' as const, content: grounded };
+  } catch (err) {
+    console.error('[chatbot] Grounding failed (using static prompt)', err);
+  }
+
   // Build the conversation for the model. With D1 bound, memory is server-side
   // (system prompt + recent history + the new user turn); otherwise fall back to
   // the client-supplied history — today's stateless behaviour.
@@ -604,13 +629,13 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
   if (db && sessionId) {
     try {
       const priorHistory = await getRecentHistory(db, sessionId, MAX_HISTORY_MESSAGES);
-      messages = [systemMessage, ...priorHistory, latestUserMessage];
+      messages = [groundedSystemMessage, ...priorHistory, latestUserMessage];
     } catch (err) {
       console.error('[chatbot] Loading session history failed (continuing stateless)', err);
-      messages = [systemMessage, ...history];
+      messages = [groundedSystemMessage, ...history];
     }
   } else {
-    messages = [systemMessage, ...history];
+    messages = [groundedSystemMessage, ...history];
   }
 
   // --- Streaming path (SSE) ---

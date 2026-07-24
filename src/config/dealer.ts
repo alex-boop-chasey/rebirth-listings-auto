@@ -88,6 +88,61 @@ export interface DealerConfig {
       rateLimit: { windowSeconds: number; maxRequests: number };
     };
   };
+  /** Chatbot (Rebi) settings — dealer-scoped toggles and grounding tunables. */
+  chat: {
+    /**
+     * Live grounding for the chatbot: inject the current inventory + a
+     * dealer-editable business-facts document into Rebi's system prompt.
+     * All deterministic and fail-open (see src/chatbot/grounding/). Every knob
+     * here is dealer-tunable — nothing about grounding is hardcoded in the
+     * grounding modules.
+     */
+    grounding: {
+      /** Master on/off. When false, Rebi uses the static prompt only. */
+      enabled: boolean;
+      /**
+       * The Sanity document `_type` holding this dealer's business facts.
+       * Resolved as `*[_type == businessInfoType][0]` (the current dealer's doc).
+       */
+      businessInfoType: string;
+      /** KV TTLs (seconds) for each cached grounding block. Ignored if no KV bound. */
+      cacheTtlSeconds: {
+        /** Business facts change rarely. */
+        businessFacts: number;
+        /** Inventory overview roll-ups. */
+        overview: number;
+        /** Per-query live lookup (short — collapses refinement bursts). */
+        lookup: number;
+      };
+      /** Always-on inventory overview (breadth questions, backstops lookup misses). */
+      overview: {
+        enabled: boolean;
+        /**
+         * Price-band breakpoints (whole dollars, ascending). Bands are rendered
+         * as "under $X", the in-between ranges, and "over $last".
+         */
+        priceBands: readonly number[];
+      };
+      /** Per-turn live lookup of matching vehicles (specific questions). */
+      lookup: {
+        enabled: boolean;
+        /** Hard cap on vehicles listed in the injected block. */
+        maxListings: number;
+        /** Whether to derive a `title match` keyword from the message. */
+        keywordSearch: boolean;
+        /**
+         * "low kms" / "low mileage" with no explicit figure maps to this
+         * odometer ceiling (km). Dealer-tunable, never hardcoded.
+         */
+        lowKmThreshold: number;
+        /**
+         * Seat counts a "family car" request maps to (must be values the filter
+         * accepts — see SEAT_OPTIONS in listings-query.ts).
+         */
+        familySeats: readonly number[];
+      };
+    };
+  };
 }
 
 // Sort options are a fixed whitelist (see src/lib/listings-query.ts for how each
@@ -193,6 +248,28 @@ export const dealerConfig: DealerConfig = {
       // Studio authoring is far lower-volume than shopper search, but still capped
       // per-IP to bound AI cost. 20/hour is generous for a dealer editing listings.
       rateLimit: { windowSeconds: 3600, maxRequests: 20 },
+    },
+  },
+  chat: {
+    grounding: {
+      enabled: true,
+      businessInfoType: 'businessInfo',
+      cacheTtlSeconds: {
+        businessFacts: 300, // 5 min — facts change rarely
+        overview: 120, // 2 min — inventory shifts slowly
+        lookup: 45, // collapse a burst of filter refinements
+      },
+      overview: {
+        enabled: true,
+        priceBands: [20000, 40000, 60000],
+      },
+      lookup: {
+        enabled: true,
+        maxListings: 6,
+        keywordSearch: true,
+        lowKmThreshold: 60000,
+        familySeats: [7, 8],
+      },
     },
   },
 };

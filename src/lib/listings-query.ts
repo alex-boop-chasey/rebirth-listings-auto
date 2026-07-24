@@ -154,13 +154,23 @@ export interface InventoryResult {
 }
 
 /**
- * Build the single listings GROQ query + its params object, reused by SSR and
- * any client re-fetch. All USER filter values are passed via the params object
- * ($bodyType, $priceMin, …) — never string-interpolated. Only the sort clause
- * (fixed whitelist) and the pagination slice bounds (computed integers) are
- * interpolated; neither is user-controlled, so neither is an injection vector.
+ * Build the shared GROQ filter expression + its params object for a filter
+ * state. This is the reusable half of `buildListingsQuery`: the boolean filter
+ * that selects matching listings, with every USER value passed via `$params`
+ * (never interpolated). Callers append their own projection / ordering / slice.
+ *
+ * Reused by:
+ *  - `buildListingsQuery` (homepage + inventory partial: page slice + count), and
+ *  - the chatbot live-lookup grounding (src/chatbot/grounding/lookup.ts), which
+ *    appends `&& status == "active"` and a compact chat projection.
+ *
+ * The expression contains ONLY `$params` and static field paths, so it is safe
+ * to embed in a larger query string.
  */
-export function buildListingsQuery(state: FilterState): { query: string; params: Record<string, unknown> } {
+export function buildListingsFilter(state: FilterState): {
+  filter: string;
+  params: Record<string, unknown>;
+} {
   // Absent filters are passed as null so `defined($x)` short-circuits the clause
   // to true. (Referencing an undefined GROQ param is an error, so we always pass
   // every key.)
@@ -195,6 +205,19 @@ export function buildListingsQuery(state: FilterState): { query: string; params:
     && (!defined($yearMin) || vehicleSpecs.year >= $yearMin)
     && (!defined($yearMax) || vehicleSpecs.year <= $yearMax)
     && (!defined($odoMax) || vehicleSpecs.odometer <= $odoMax)`;
+
+  return { filter, params };
+}
+
+/**
+ * Build the single listings GROQ query + its params object, reused by SSR and
+ * any client re-fetch. All USER filter values are passed via the params object
+ * ($bodyType, $priceMin, …) — never string-interpolated. Only the sort clause
+ * (fixed whitelist) and the pagination slice bounds (computed integers) are
+ * interpolated; neither is user-controlled, so neither is an injection vector.
+ */
+export function buildListingsQuery(state: FilterState): { query: string; params: Record<string, unknown> } {
+  const { filter, params } = buildListingsFilter(state);
 
   const { pageSize } = dealerConfig.inventory;
   const offset = (state.page - 1) * pageSize;

@@ -1,11 +1,12 @@
 /**
- * Rebirth Listings Auto — Business Knowledge Base (DEMO STUB)
+ * Rebirth Listings Auto — Business Knowledge Base (DEGRADED FALLBACK)
  * ------------------------------------------------------------------
- * This is a placeholder knowledge base for the demo dealership "Rebirth Listings Auto".
- * It exists only to prove the chatbot plumbing works end-to-end. Real content
- * will come from Sanity later (see the wider port plan).
+ * As of the inventory/business-facts grounding work, the SOURCE OF TRUTH for
+ * business facts is the Sanity `businessInfo` document (see
+ * src/chatbot/grounding/business-facts.ts). This string is now only the
+ * DEGRADED FALLBACK, used verbatim when that document is absent or the fetch
+ * fails — so the chatbot always has something coherent to say. Keep it.
  *
- * Injected verbatim into the system prompt at request time (system-prompt.ts).
  * Keep it a single exported string. All specifics below are placeholders —
  * search for [DEALER_PHONE] / [DEALER_URL] and the TODO markers to fill in.
  */
