@@ -1,5 +1,5 @@
 /**
- * Rebirth Listings Auto — Chat poll endpoint (handoff live updates)
+ * Rebirth Auto — Chat poll endpoint (handoff live updates)
  * ------------------------------------------------------------------
  * The widget polls this while a session is `escalated` / `human_active` so the
  * team's Telegram replies appear in the thread without a reload. It returns the

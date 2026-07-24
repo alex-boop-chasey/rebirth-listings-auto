@@ -1,5 +1,5 @@
 /**
- * Rebirth Listings Auto — Chatbot Config
+ * Rebirth Auto — Chatbot Config
  * ------------------------------------------------------------------
  * Central knobs for the chatbot. Change the model, generation params, or
  * limits here. No dependencies — portable to a Cloudflare Worker/Pages Function.
@@ -12,7 +12,7 @@
 
 // Sent to OpenRouter for ranking/analytics (optional but recommended).
 export const APP_URL = 'https://rebirth-listings-auto.pages.dev';
-export const APP_TITLE = 'Rebirth Listings Auto';
+export const APP_TITLE = 'Rebirth Auto';
 
 // Generation parameters.
 export const TEMPERATURE = 0.5;

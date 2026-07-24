@@ -1,4 +1,4 @@
-# Rebirth Listings Auto — AI Chatbot
+# Rebirth Auto — AI Chatbot
 
 > Ported into this Astro 7 / Cloudflare **Worker** demo from the original Pages
 > project. The one behavioural change: env/bindings are read via

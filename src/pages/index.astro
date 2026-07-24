@@ -33,9 +33,9 @@ const { items: listings, total } = await client.fetch<InventoryResult>(query, pa
 const activeCount = activeChips(filterState).length;
 const year = new Date().getFullYear();
 
-const title = 'Rebirth Listings Auto — quality vehicles, ready to drive away';
+const title = 'Rebirth Auto — quality vehicles, ready to drive away';
 const description =
-  'Browse the current range at Rebirth Listings Auto. Every vehicle in our inventory, kept up to date — find your next car and talk to our team.';
+  'Browse the current range at Rebirth Auto. Every vehicle in our inventory, kept up to date — find your next car and talk to our team.';
 const canonicalURL = new URL(
   Astro.url.pathname,
   Astro.site ?? 'https://rebirth-listings-auto.pages.dev',
@@ -76,7 +76,7 @@ const canonicalURL = new URL(
       <!-- Header -->
       <header class="flex items-center justify-between py-6">
         <a href="/" class="text-base font-semibold tracking-tight text-slate-900">
-          Rebirth Listings<span class="text-slate-400"> Auto</span>
+          Rebirth<span class="text-slate-400"> Auto</span>
         </a>
         <nav class="flex items-center gap-6 text-sm">
           <a href="#inventory" class="text-slate-500 transition hover:text-slate-900">
@@ -105,7 +105,7 @@ const canonicalURL = new URL(
             Your next car is waiting.
           </h1>
           <p class="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-            Browse the current range at Rebirth Listings Auto — quality vehicles, full specs,
+            Browse the current range at Rebirth Auto — quality vehicles, full specs,
             and a team ready to help you drive away happy.
           </p>
         </section>
@@ -139,7 +139,7 @@ const canonicalURL = new URL(
 
       <!-- Footer -->
       <footer class="mt-24 border-t border-slate-200 py-8 text-center text-sm text-slate-500">
-        © {year} Rebirth Listings Auto · All vehicles subject to availability.
+        © {year} Rebirth Auto · All vehicles subject to availability.
       </footer>
     </div>
 

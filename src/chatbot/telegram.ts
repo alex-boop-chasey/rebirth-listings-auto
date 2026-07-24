@@ -1,5 +1,5 @@
 /**
- * Rebirth Listings Auto — Telegram human-handoff bridge
+ * Rebirth Auto — Telegram human-handoff bridge
  * ==================================================================
  * Sends escalation notifications to the team and parses their replies back out
  * of Telegram webhook payloads. Dependency-free and FAIL-OPEN: if the bot token
@@ -88,9 +88,8 @@ export async function sendToTelegram(
     .map((m) => `${label(m.role)}: ${m.content}`)
     .join('\n');
 
-  // TODO: swap [DEALER_URL] for the demo's real domain when it's live.
   const text =
-    `🔔 A visitor on [DEALER_URL] needs a human.\n\n` +
+    `🔔 A visitor on https://rebirthauto.com.au needs a human.\n\n` +
     `Contact: ${contact || '(not provided yet)'}\n\n` +
     `Recent conversation:\n${transcript || '(no messages)'}\n\n` +
     `↩️ Reply to THIS message to answer the visitor. Reply "/bot" to hand the chat back to Rebi.\n` +

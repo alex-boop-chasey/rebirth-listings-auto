@@ -1,5 +1,5 @@
 /**
- * Rebirth Listings Auto — Chatbot Core Handler (PORTABLE)
+ * Rebirth Auto — Chatbot Core Handler (PORTABLE)
  * ==================================================================
  * This is the framework-agnostic brain of the chatbot. It takes a standard
  * web `Request` plus an `env` object and returns a standard `Response`.
@@ -191,7 +191,7 @@ function stripMarkers(text: string): string {
 
 /** Static, honest message shown when both models fail — includes a real contact. */
 const BOTH_FAILED_REPLY =
-  "Sorry, Rebi's having a bit of trouble responding right now. You can reach one of our team members directly on [DEALER_PHONE] or through the contact page at /contact and we'll get back to you.";
+  "Sorry, Rebi's having a bit of trouble responding right now. You can reach one of our team members directly on (07) 5550 0100 or through the contact page at /contact and we'll get back to you.";
 
 interface ModelResult {
   ok: boolean;
@@ -407,7 +407,7 @@ function streamChatResponse(opts: StreamOpts): Response {
           }
         } else if (escalating) {
           // No D1, or escalation rate-limited: answer with the marker stripped.
-          await finishNormal(content || 'Let me get our team to help — reach us on [DEALER_PHONE] or via /contact.', false);
+          await finishNormal(content || 'Let me get our team to help — reach us on (07) 5550 0100 or via /contact.', false);
         } else {
           await finishNormal(content, streaming);
         }
@@ -535,7 +535,7 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
       if (!rl.allowed) {
         console.log(`[chatbot] Rate limit exceeded for ${ip} (retry in ${rl.retryAfterSeconds}s)`);
         return json(
-          { error: "You've reached the chat limit — try again later or get in touch via [DEALER_URL]/contact." },
+          { error: "You've reached the chat limit — try again later or get in touch via https://rebirthauto.com.au/contact." },
           429,
           { 'Retry-After': String(rl.retryAfterSeconds) }
         );
@@ -692,7 +692,7 @@ export async function handleChatRequest(request: Request, env: ChatEnv): Promise
   // --- Normal reply (may carry a [[RESOLVED]] hint) ---
   const resolved = isResolved(rawReply);
   let reply = stripMarkers(rawReply);
-  if (!reply) reply = 'Let me get our team to help with that — you can reach us on [DEALER_PHONE] or via /contact.';
+  if (!reply) reply = 'Let me get our team to help with that — you can reach us on (07) 5550 0100 or via /contact.';
 
   const lastId = db && sessionId ? await persistExchange(db, sessionId, latestUserMessage.content, reply, result.model) : undefined;
   return json({ reply, sessionId, status: 'ai_active', lastId, resolved });

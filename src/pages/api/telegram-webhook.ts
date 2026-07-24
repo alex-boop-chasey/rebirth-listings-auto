@@ -1,5 +1,5 @@
 /**
- * Rebirth Listings Auto — Telegram webhook (the team's replies → the visitor's chat)
+ * Rebirth Auto — Telegram webhook (the team's replies → the visitor's chat)
  * ------------------------------------------------------------------
  * Telegram POSTs here whenever a team member sends a message to the bot. A
  * verified quote-reply to an escalation notification is written into the

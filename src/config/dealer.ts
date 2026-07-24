@@ -186,7 +186,7 @@ export const dealerConfig: DealerConfig = {
   identity: {
     // Minimal stub — the broader migration of name/domain/contact out of pages
     // is a separate ticket. Only what this feature needs lives here today.
-    name: 'Rebirth Listings Auto',
+    name: 'Rebirth Auto',
   },
   locale: {
     locale: 'en-AU',
