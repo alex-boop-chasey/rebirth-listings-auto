@@ -94,6 +94,8 @@ const STOPWORDS = new Set([
   'from', 'before', 'after', 'between', 'model', 'models', 'seat', 'seats', 'seater',
   'km', 'kms', 'kilometre', 'kilometres', 'kilometer', 'kilometers', 'mile', 'miles',
   'mileage', 'low', 'high', 'price', 'priced', 'grand', 'k', 'something', 'anything',
+  'stock', 'range', 'available', 'availability', 'inventory', 'lot', 'showroom',
+  'yard', 'currently', 'now', 'right', 'today', 'listing', 'listings', 'sale',
 ]);
 
 export interface Extraction {
@@ -202,9 +204,25 @@ export function extractFilters(message: string): Extraction | null {
   // parseFilters validates + drops unknown codes, giving the canonical state.
   const state = parseFilters(sp);
 
+  const hasFilter =
+    state.bodyType.length > 0 ||
+    state.transmission.length > 0 ||
+    state.fuelType.length > 0 ||
+    state.driveType.length > 0 ||
+    state.condition.length > 0 ||
+    state.seats.length > 0 ||
+    state.priceMin != null ||
+    state.priceMax != null ||
+    state.yearMin != null ||
+    state.yearMax != null ||
+    state.odoMax != null;
+
   // --- Residual keyword (make/model) ------------------------------------------
+  // Only a fallback for bare make/model queries ("do you have a hilux?"). Never
+  // layered on top of a structured filter, or a stray noun (e.g. "in stock")
+  // would add a spurious `title match` clause that kills good structured matches.
   let keyword: string | null = null;
-  if (cfg.keywordSearch) {
+  if (cfg.keywordSearch && !hasFilter) {
     const residuals = message
       .toLowerCase()
       .split(/[^a-z0-9]+/)
@@ -220,19 +238,6 @@ export function extractFilters(message: string): Extraction | null {
     const candidates = residuals.filter((t) => !known.has(t) && !known.has(t.replace(/s$/, '')));
     if (candidates.length) keyword = candidates.slice(0, 2).join(' ');
   }
-
-  const hasFilter =
-    state.bodyType.length > 0 ||
-    state.transmission.length > 0 ||
-    state.fuelType.length > 0 ||
-    state.driveType.length > 0 ||
-    state.condition.length > 0 ||
-    state.seats.length > 0 ||
-    state.priceMin != null ||
-    state.priceMax != null ||
-    state.yearMin != null ||
-    state.yearMax != null ||
-    state.odoMax != null;
 
   if (!hasFilter && !keyword) return null;
   return { state, keyword };
